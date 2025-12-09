@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,11 +7,13 @@ import {
   Image,
   TouchableOpacity,
   FlatList,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import theme from '../../utils/theme';
 import { useAuth } from '../../context/AuthContext';
-import { PARTIDAS_MOCK, ATLETAS_MOCK, isMatchScheduled } from '../../services/api';
+import { ATLETAS_MOCK, isMatchScheduled, getTeamFixtures, getTeamLastFixtures, getSquad } from '../../services/api';
 
 // Componente de Tab
 function TabButton({ title, active, onPress }) {
@@ -123,9 +125,59 @@ function PartidaItem({ partida, time, onPress }) {
 export default function DetalheTimeScreen({ route, navigation }) {
   const { time } = route.params;
   const [activeTab, setActiveTab] = useState('info');
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [partidasDoTime, setPartidasDoTime] = useState([]);
+  const [elenco, setElenco] = useState([]);
   const { user, toggleFavorito, isFavorito } = useAuth();
 
   const favorito = isFavorito('times', time.team.id);
+
+  const loadData = async () => {
+    try {
+      // Buscar próximas partidas do time
+      const currentYear = new Date().getFullYear();
+      const [fixturesData, squadData] = await Promise.all([
+        getTeamLastFixtures(time.team.id, 15),
+        getSquad(time.team.id),
+      ]);
+
+      if (fixturesData?.response) {
+        setPartidasDoTime(fixturesData.response);
+      }
+
+      if (squadData?.response?.[0]?.players) {
+        // Formatar dados do elenco para o formato esperado
+        const players = squadData.response[0].players.map(p => ({
+          player: {
+            id: p.id,
+            name: p.name,
+            photo: p.photo,
+            position: p.position,
+            number: p.number,
+          }
+        }));
+        setElenco(players);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar dados do time:', error);
+    }
+  };
+
+  useEffect(() => {
+    const init = async () => {
+      setLoading(true);
+      await loadData();
+      setLoading(false);
+    };
+    init();
+  }, [time.team.id]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  };
 
   const handleFavorito = () => {
     if (user) {
@@ -140,17 +192,6 @@ export default function DetalheTimeScreen({ route, navigation }) {
     { key: 'elenco', title: 'Elenco' },
     { key: 'jogos', title: 'Jogos' },
   ];
-
-  // Filtrar partidas do time
-  const partidasDoTime = PARTIDAS_MOCK.filter(
-    p => p.teams.home.id === time.team.id || 
-         p.teams.away.id === time.team.id
-  );
-
-  // Filtrar jogadores do time (usando o mock de atletas)
-  const elenco = ATLETAS_MOCK.filter(
-    atleta => atleta.statistics[0]?.team?.id === time.team.id
-  );
 
   const proximaPartida = partidasDoTime.find(p => isMatchScheduled(p.fixture.status.short));
 
@@ -243,7 +284,17 @@ export default function DetalheTimeScreen({ route, navigation }) {
   };
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView 
+      style={styles.container}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor={theme.colors.primary}
+          colors={[theme.colors.primary]}
+        />
+      }
+    >
       {/* Header do Time */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
@@ -283,7 +334,14 @@ export default function DetalheTimeScreen({ route, navigation }) {
       </View>
 
       {/* Conteúdo */}
-      {renderContent()}
+      {loading && activeTab !== 'info' ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <Text style={styles.loadingText}>Carregando...</Text>
+        </View>
+      ) : (
+        renderContent()
+      )}
     </ScrollView>
   );
 }
@@ -548,5 +606,15 @@ const styles = StyleSheet.create({
   emptyMiniText: {
     fontSize: theme.fontSize.sm,
     color: theme.colors.textMuted,
+  },
+  loadingContainer: {
+    padding: theme.spacing.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    marginTop: theme.spacing.md,
+    fontSize: theme.fontSize.md,
+    color: theme.colors.textSecondary,
   },
 });

@@ -134,6 +134,16 @@ export async function getTeamStatistics(teamId, leagueId, season) {
   return fetchAPI('/teams/statistics', { team: teamId, league: leagueId, season });
 }
 
+// Partidas de um time específico
+export async function getTeamFixtures(teamId, season, next = 10) {
+  return fetchAPI('/fixtures', { team: teamId, season, next });
+}
+
+// Últimas partidas de um time
+export async function getTeamLastFixtures(teamId, last = 10) {
+  return fetchAPI('/fixtures', { team: teamId, last });
+}
+
 // ==================== JOGADORES ====================
 
 // Jogadores de um time

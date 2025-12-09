@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,11 +7,13 @@ import {
   TouchableOpacity,
   Image,
   RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import theme from '../../utils/theme';
 import { 
-  PARTIDAS_MOCK, 
+  getLiveMatches,
+  getFixturesByDate,
   isMatchLive, 
   isMatchFinished, 
   isMatchScheduled 
@@ -122,14 +124,48 @@ function PartidaCard({ partida, onPress }) {
 
 export default function PartidasScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
-  const [partidas, setPartidas] = useState(PARTIDAS_MOCK);
+  const [loading, setLoading] = useState(true);
+  const [partidas, setPartidas] = useState([]);
   const [filtro, setFiltro] = useState('todas');
+
+  const loadPartidas = async () => {
+    try {
+      // Buscar partidas ao vivo
+      const liveData = await getLiveMatches();
+      const partidasAoVivo = liveData?.response || [];
+
+      // Buscar partidas do dia
+      const today = new Date().toISOString().split('T')[0];
+      const todayData = await getFixturesByDate(today);
+      const partidasHoje = todayData?.response || [];
+
+      // Combinar, removendo duplicatas
+      const todasPartidas = [...partidasAoVivo];
+      partidasHoje.forEach(p => {
+        if (!todasPartidas.find(t => t.fixture.id === p.fixture.id)) {
+          todasPartidas.push(p);
+        }
+      });
+
+      setPartidas(todasPartidas);
+    } catch (error) {
+      console.error('Erro ao carregar partidas:', error);
+    }
+  };
+
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      await loadPartidas();
+      setLoading(false);
+    };
+    loadData();
+  }, []);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 1500);
+    await loadPartidas();
+    setRefreshing(false);
   };
 
   const filtros = [
@@ -164,14 +200,20 @@ export default function PartidasScreen({ navigation }) {
         ))}
       </View>
 
-      <FlatList
-        data={partidasFiltradas}
-        keyExtractor={(item) => item.fixture.id.toString()}
-        renderItem={({ item }) => (
-          <PartidaCard
-            partida={item}
-            onPress={() => navigation.navigate('DetalhePartida', { partida: item })}
-          />
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <Text style={styles.loadingText}>Carregando partidas...</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={partidasFiltradas}
+          keyExtractor={(item) => item.fixture.id.toString()}
+          renderItem={({ item }) => (
+            <PartidaCard
+              partida={item}
+              onPress={() => navigation.navigate('DetalhePartida', { partida: item })}
+            />
         )}
         contentContainerStyle={styles.listContent}
         refreshControl={
@@ -188,6 +230,7 @@ export default function PartidasScreen({ navigation }) {
           </View>
         }
       />
+      )}
     </View>
   );
 }
@@ -364,5 +407,16 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.md,
     fontSize: theme.fontSize.md,
     color: theme.colors.textMuted,
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 100,
+  },
+  loadingText: {
+    marginTop: theme.spacing.md,
+    fontSize: theme.fontSize.md,
+    color: theme.colors.textSecondary,
   },
 });
