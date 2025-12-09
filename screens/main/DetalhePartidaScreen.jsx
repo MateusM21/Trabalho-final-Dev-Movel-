@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,10 +6,11 @@ import {
   ScrollView,
   Image,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import theme from '../../utils/theme';
-import { isMatchLive, isMatchFinished, isMatchScheduled } from '../../services/api';
+import { isMatchLive, isMatchFinished, isMatchScheduled, getFixtureEvents, EVENTOS_MOCK } from '../../services/api';
 
 export default function DetalhePartidaScreen({ route, navigation }) {
   const { partida } = route.params;
@@ -17,13 +18,50 @@ export default function DetalhePartidaScreen({ route, navigation }) {
   const isFinished = isMatchFinished(partida.fixture.status.short);
   const isScheduled = isMatchScheduled(partida.fixture.status.short);
 
-  // Dados mockados de eventos
-  const eventos = [
-    { minuto: 15, tipo: 'gol', time: 'mandante', jogador: 'Jogador 1' },
-    { minuto: 32, tipo: 'cartao_amarelo', time: 'visitante', jogador: 'Jogador 2' },
-    { minuto: 45, tipo: 'gol', time: 'visitante', jogador: 'Jogador 3' },
-    { minuto: 67, tipo: 'gol', time: 'mandante', jogador: 'Jogador 4' },
-  ];
+  const [eventos, setEventos] = useState([]);
+  const [loadingEventos, setLoadingEventos] = useState(false);
+
+  useEffect(() => {
+    loadEventos();
+  }, []);
+
+  const loadEventos = async () => {
+    setLoadingEventos(true);
+    try {
+      // Tentar buscar eventos da API
+      const eventosAPI = await getFixtureEvents(partida.fixture.id);
+      if (eventosAPI && eventosAPI.length > 0) {
+        // Mapear eventos da API para o formato do app
+        const eventosMapeados = eventosAPI.map(e => ({
+          minuto: e.time.elapsed + (e.time.extra ? `+${e.time.extra}` : ''),
+          tipo: mapEventType(e.type, e.detail),
+          time: e.team.id === partida.teams.home.id ? 'mandante' : 'visitante',
+          jogador: e.player.name || 'Desconhecido',
+          assistencia: e.assist?.name || null,
+          detalhe: e.detail,
+        }));
+        setEventos(eventosMapeados);
+      } else {
+        // Usar eventos mockados específicos para esta partida
+        const eventosMock = EVENTOS_MOCK[partida.fixture.id] || [];
+        setEventos(eventosMock);
+      }
+    } catch (error) {
+      console.log('Usando eventos mockados');
+      const eventosMock = EVENTOS_MOCK[partida.fixture.id] || [];
+      setEventos(eventosMock);
+    } finally {
+      setLoadingEventos(false);
+    }
+  };
+
+  const mapEventType = (type, detail) => {
+    if (type === 'Goal') return 'gol';
+    if (type === 'Card' && detail === 'Yellow Card') return 'cartao_amarelo';
+    if (type === 'Card' && detail === 'Red Card') return 'cartao_vermelho';
+    if (type === 'subst') return 'substituicao';
+    return type.toLowerCase();
+  };
 
   const getEventoIcon = (tipo) => {
     switch (tipo) {
@@ -141,39 +179,61 @@ export default function DetalhePartidaScreen({ route, navigation }) {
       )}
 
       {/* Timeline de Eventos */}
-      {(isLive || isFinished) && eventos.length > 0 && (
+      {(isLive || isFinished) && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Eventos da Partida</Text>
-          <View style={styles.timeline}>
-            {eventos.map((evento, index) => (
-              <View 
-                key={index} 
-                style={[
-                  styles.eventoItem,
-                  evento.time === 'visitante' && styles.eventoVisitante
-                ]}
-              >
-                {evento.time === 'mandante' && (
-                  <>
-                    <View style={styles.eventoInfo}>
-                      <Text style={styles.eventoJogador}>{evento.jogador}</Text>
-                      {getEventoIcon(evento.tipo)}
-                    </View>
-                    <Text style={styles.eventoMinuto}>{evento.minuto}'</Text>
-                  </>
-                )}
-                {evento.time === 'visitante' && (
-                  <>
-                    <Text style={styles.eventoMinuto}>{evento.minuto}'</Text>
-                    <View style={styles.eventoInfo}>
-                      {getEventoIcon(evento.tipo)}
-                      <Text style={styles.eventoJogador}>{evento.jogador}</Text>
-                    </View>
-                  </>
-                )}
-              </View>
-            ))}
-          </View>
+          {loadingEventos ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color={theme.colors.primary} />
+              <Text style={styles.loadingText}>Carregando eventos...</Text>
+            </View>
+          ) : eventos.length > 0 ? (
+            <View style={styles.timeline}>
+              {eventos.map((evento, index) => (
+                <View 
+                  key={index} 
+                  style={[
+                    styles.eventoItem,
+                    evento.time === 'visitante' && styles.eventoVisitante
+                  ]}
+                >
+                  {evento.time === 'mandante' && (
+                    <>
+                      <View style={styles.eventoInfo}>
+                        <View style={styles.eventoJogadorContainer}>
+                          <Text style={styles.eventoJogador}>{evento.jogador}</Text>
+                          {evento.assistencia && (
+                            <Text style={styles.eventoAssistencia}>Assist: {evento.assistencia}</Text>
+                          )}
+                        </View>
+                        {getEventoIcon(evento.tipo)}
+                      </View>
+                      <Text style={styles.eventoMinuto}>{evento.minuto}'</Text>
+                    </>
+                  )}
+                  {evento.time === 'visitante' && (
+                    <>
+                      <Text style={styles.eventoMinuto}>{evento.minuto}'</Text>
+                      <View style={styles.eventoInfo}>
+                        {getEventoIcon(evento.tipo)}
+                        <View style={styles.eventoJogadorContainer}>
+                          <Text style={styles.eventoJogador}>{evento.jogador}</Text>
+                          {evento.assistencia && (
+                            <Text style={styles.eventoAssistencia}>Assist: {evento.assistencia}</Text>
+                          )}
+                        </View>
+                      </View>
+                    </>
+                  )}
+                </View>
+              ))}
+            </View>
+          ) : (
+            <View style={styles.noEventosContainer}>
+              <Ionicons name="football-outline" size={40} color={theme.colors.textMuted} />
+              <Text style={styles.noEventosText}>Nenhum evento registrado</Text>
+            </View>
+          )}
         </View>
       )}
 
@@ -372,9 +432,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: theme.spacing.sm,
   },
+  eventoJogadorContainer: {
+    flexDirection: 'column',
+  },
   eventoJogador: {
     fontSize: theme.fontSize.sm,
     color: theme.colors.textPrimary,
+    fontWeight: theme.fontWeight.medium,
+  },
+  eventoAssistencia: {
+    fontSize: theme.fontSize.xs,
+    color: theme.colors.textMuted,
+    fontStyle: 'italic',
   },
   eventoMinuto: {
     fontSize: theme.fontSize.sm,
@@ -383,6 +452,31 @@ const styles = StyleSheet.create({
     marginHorizontal: theme.spacing.md,
     minWidth: 35,
     textAlign: 'center',
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: theme.spacing.lg,
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.lg,
+  },
+  loadingText: {
+    marginLeft: theme.spacing.sm,
+    color: theme.colors.textSecondary,
+    fontSize: theme.fontSize.sm,
+  },
+  noEventosContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: theme.spacing.xl,
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.lg,
+  },
+  noEventosText: {
+    marginTop: theme.spacing.sm,
+    color: theme.colors.textMuted,
+    fontSize: theme.fontSize.sm,
   },
   cartao: {
     width: 14,
