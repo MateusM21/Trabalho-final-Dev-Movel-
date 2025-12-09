@@ -235,17 +235,17 @@ export const CAMPEONATOS_ESTRUTURADOS = {
         {
           league: { id: 2, name: 'UEFA Champions League', type: 'Cup', logo: 'https://media.api-sports.io/football/leagues/2.png' },
           country: { name: 'Europe', code: null, flag: null },
-          seasons: [{ year: 2025, current: true }],
+          seasons: [{ year: 2024, current: true }],
         },
         {
           league: { id: 3, name: 'UEFA Europa League', type: 'Cup', logo: 'https://media.api-sports.io/football/leagues/3.png' },
           country: { name: 'Europe', code: null, flag: null },
-          seasons: [{ year: 2025, current: true }],
+          seasons: [{ year: 2024, current: true }],
         },
         {
           league: { id: 848, name: 'UEFA Conference League', type: 'Cup', logo: 'https://media.api-sports.io/football/leagues/848.png' },
           country: { name: 'Europe', code: null, flag: null },
-          seasons: [{ year: 2025, current: true }],
+          seasons: [{ year: 2024, current: true }],
         },
       ],
     },
@@ -255,17 +255,17 @@ export const CAMPEONATOS_ESTRUTURADOS = {
         {
           league: { id: 13, name: 'CONMEBOL Libertadores', type: 'Cup', logo: 'https://media.api-sports.io/football/leagues/13.png' },
           country: { name: 'South America', code: null, flag: null },
-          seasons: [{ year: 2025, current: true }],
+          seasons: [{ year: 2024, current: true }],
         },
         {
           league: { id: 11, name: 'CONMEBOL Sudamericana', type: 'Cup', logo: 'https://media.api-sports.io/football/leagues/11.png' },
           country: { name: 'South America', code: null, flag: null },
-          seasons: [{ year: 2025, current: true }],
+          seasons: [{ year: 2024, current: true }],
         },
         {
           league: { id: 15, name: 'CONMEBOL Recopa', type: 'Cup', logo: 'https://media.api-sports.io/football/leagues/15.png' },
           country: { name: 'South America', code: null, flag: null },
-          seasons: [{ year: 2025, current: true }],
+          seasons: [{ year: 2024, current: true }],
         },
       ],
     },
@@ -278,27 +278,27 @@ export const CAMPEONATOS_ESTRUTURADOS = {
         {
           league: { id: 71, name: 'Brasileirão Série A', type: 'League', logo: 'https://media.api-sports.io/football/leagues/71.png' },
           country: { name: 'Brazil', code: 'BR', flag: 'https://media.api-sports.io/flags/br.svg' },
-          seasons: [{ year: 2025, current: true }],
+          seasons: [{ year: 2024, current: true }],
         },
         {
           league: { id: 72, name: 'Brasileirão Série B', type: 'League', logo: 'https://media.api-sports.io/football/leagues/72.png' },
           country: { name: 'Brazil', code: 'BR', flag: 'https://media.api-sports.io/flags/br.svg' },
-          seasons: [{ year: 2025, current: true }],
+          seasons: [{ year: 2024, current: true }],
         },
         {
           league: { id: 75, name: 'Brasileirão Série C', type: 'League', logo: 'https://media.api-sports.io/football/leagues/75.png' },
           country: { name: 'Brazil', code: 'BR', flag: 'https://media.api-sports.io/flags/br.svg' },
-          seasons: [{ year: 2025, current: true }],
+          seasons: [{ year: 2024, current: true }],
         },
         {
           league: { id: 76, name: 'Brasileirão Série D', type: 'League', logo: 'https://media.api-sports.io/football/leagues/76.png' },
           country: { name: 'Brazil', code: 'BR', flag: 'https://media.api-sports.io/flags/br.svg' },
-          seasons: [{ year: 2025, current: true }],
+          seasons: [{ year: 2024, current: true }],
         },
         {
           league: { id: 73, name: 'Copa do Brasil', type: 'Cup', logo: 'https://media.api-sports.io/football/leagues/73.png' },
           country: { name: 'Brazil', code: 'BR', flag: 'https://media.api-sports.io/flags/br.svg' },
-          seasons: [{ year: 2025, current: true }],
+          seasons: [{ year: 2024, current: true }],
         },
       ],
     },
@@ -309,32 +309,32 @@ export const CAMPEONATOS_ESTRUTURADOS = {
         {
           league: { id: 39, name: 'Premier League', type: 'League', logo: 'https://media.api-sports.io/football/leagues/39.png' },
           country: { name: 'England', code: 'GB', flag: 'https://media.api-sports.io/flags/gb.svg' },
-          seasons: [{ year: 2025, current: true }],
+          seasons: [{ year: 2024, current: true }],
         },
         {
           league: { id: 40, name: 'Championship', type: 'League', logo: 'https://media.api-sports.io/football/leagues/40.png' },
           country: { name: 'England', code: 'GB', flag: 'https://media.api-sports.io/flags/gb.svg' },
-          seasons: [{ year: 2025, current: true }],
+          seasons: [{ year: 2024, current: true }],
         },
         {
           league: { id: 41, name: 'League One', type: 'League', logo: 'https://media.api-sports.io/football/leagues/41.png' },
           country: { name: 'England', code: 'GB', flag: 'https://media.api-sports.io/flags/gb.svg' },
-          seasons: [{ year: 2025, current: true }],
+          seasons: [{ year: 2024, current: true }],
         },
         {
           league: { id: 42, name: 'League Two', type: 'League', logo: 'https://media.api-sports.io/football/leagues/42.png' },
           country: { name: 'England', code: 'GB', flag: 'https://media.api-sports.io/flags/gb.svg' },
-          seasons: [{ year: 2025, current: true }],
+          seasons: [{ year: 2024, current: true }],
         },
         {
           league: { id: 45, name: 'FA Cup', type: 'Cup', logo: 'https://media.api-sports.io/football/leagues/45.png' },
           country: { name: 'England', code: 'GB', flag: 'https://media.api-sports.io/flags/gb.svg' },
-          seasons: [{ year: 2025, current: true }],
+          seasons: [{ year: 2024, current: true }],
         },
         {
           league: { id: 48, name: 'EFL Cup', type: 'Cup', logo: 'https://media.api-sports.io/football/leagues/48.png' },
           country: { name: 'England', code: 'GB', flag: 'https://media.api-sports.io/flags/gb.svg' },
-          seasons: [{ year: 2025, current: true }],
+          seasons: [{ year: 2024, current: true }],
         },
       ],
     },
@@ -552,7 +552,7 @@ export const CAMPEONATOS_MOCK = [
       code: 'BR',
       flag: 'https://media.api-sports.io/flags/br.svg',
     },
-    seasons: [{ year: 2025, current: true }],
+    seasons: [{ year: 2024, current: true }],
   },
   {
     league: {
@@ -566,7 +566,7 @@ export const CAMPEONATOS_MOCK = [
       code: 'BR',
       flag: 'https://media.api-sports.io/flags/br.svg',
     },
-    seasons: [{ year: 2025, current: true }],
+    seasons: [{ year: 2024, current: true }],
   },
   {
     league: {
@@ -580,7 +580,7 @@ export const CAMPEONATOS_MOCK = [
       code: null,
       flag: null,
     },
-    seasons: [{ year: 2025, current: true }],
+    seasons: [{ year: 2024, current: true }],
   },
   // INGLATERRA
   {

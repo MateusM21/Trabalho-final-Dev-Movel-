@@ -171,6 +171,9 @@ export default function DetalheCampeonatoScreen({ route, navigation }) {
   ];
 
   // Determinar a temporada atual
+  // A API usa o ano de INÍCIO da temporada
+  // Ligas europeias 2024/2025 = season 2024
+  // Brasileirão 2024 = season 2024 (já terminou em dez 2024)
   const getCurrentSeason = () => {
     const currentYear = new Date().getFullYear();
     const currentMonth = new Date().getMonth();
@@ -183,20 +186,22 @@ export default function DetalheCampeonatoScreen({ route, navigation }) {
                             campeonato.league?.id === 11;   // Sudamericana
     
     if (isBrazilian || isSouthAmerican) {
-      // Campeonatos sul-americanos seguem o ano calendário
-      // Se estivermos em janeiro-março, ainda pode ser a temporada anterior
-      return currentMonth < 3 ? currentYear - 1 : currentYear;
+      // Brasileirão segue ano calendário
+      // Em dez/jan/fev mostra temporada do ano anterior (já finalizada)
+      // A partir de abril mostra temporada atual
+      return currentMonth >= 3 && currentMonth <= 11 ? currentYear : currentYear - 1;
     }
     
     // Ligas europeias: temporada 2024/2025 usa season=2024
-    // A temporada começa em agosto e termina em maio do ano seguinte
+    // Temporada vai de agosto a maio
+    // Se estivermos entre jan-jul, ainda é a temporada que começou no ano anterior
     return currentMonth >= 7 ? currentYear : currentYear - 1;
   };
 
-  // Usar a temporada definida no campeonato ou calcular
-  const season = campeonato.seasons?.find(s => s.current)?.year || getCurrentSeason();
+  // Usar a temporada definida no campeonato, mas recalcular se não houver dados
+  const season = getCurrentSeason();
   
-  console.log('Campeonato:', campeonato.league.name, 'Season:', season);
+  console.log('Campeonato:', campeonato.league.name, 'Season calculada:', season);
 
   // Carregar dados ao montar o componente
   useEffect(() => {
