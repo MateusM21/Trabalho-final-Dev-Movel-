@@ -16,7 +16,9 @@ import {
   getFixturesByDate,
   isMatchLive, 
   isMatchFinished, 
-  isMatchScheduled 
+  isMatchScheduled,
+  formatTimeBrasilia,
+  formatDateBrasilia,
 } from '../../services/api';
 
 function PartidaCard({ partida, onPress }) {
@@ -40,7 +42,7 @@ function PartidaCard({ partida, onPress }) {
         )}
         {isScheduled && (
           <Text style={styles.agendadoText}>
-            {new Date(partida.fixture.date).toLocaleDateString('pt-BR')}
+            {formatDateBrasilia(partida.fixture.date)}
           </Text>
         )}
       </View>
@@ -66,7 +68,7 @@ function PartidaCard({ partida, onPress }) {
           {isScheduled ? (
             <View style={styles.scheduleTime}>
               <Text style={styles.scheduleHour}>
-                {new Date(partida.fixture.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                {formatTimeBrasilia(partida.fixture.date)}
               </Text>
               <Text style={styles.rodadaText}>{partida.league.round}</Text>
             </View>

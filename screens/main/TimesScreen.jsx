@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,10 +9,11 @@ import {
   Image,
   RefreshControl,
   TextInput,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import theme from '../../utils/theme';
-import { TIMES_MOCK } from '../../services/api';
+import { TIMES_MOCK, getAllTeams } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 
 function TimeItem({ time, onPress, isFavorito, onToggleFavorito }) {
@@ -82,15 +83,35 @@ function groupTimesByCountry(times) {
 export default function TimesScreen({ navigation }) {
   const { user, toggleFavorito, isFavorito } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [times, setTimes] = useState(TIMES_MOCK);
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState('country'); // 'all' ou 'country'
 
+  // Carregar times da API ao montar
+  useEffect(() => {
+    loadTimes();
+  }, []);
+
+  const loadTimes = async () => {
+    setLoading(true);
+    try {
+      const data = await getAllTeams();
+      console.log('Times carregados:', data?.results);
+      if (data?.response && data.response.length > 0) {
+        setTimes(data.response);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar times:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const onRefresh = async () => {
     setRefreshing(true);
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 1500);
+    await loadTimes();
+    setRefreshing(false);
   };
 
   const timesFiltrados = useMemo(() => {
@@ -153,74 +174,90 @@ export default function TimesScreen({ navigation }) {
         )}
       </View>
 
-      {/* Toggle de visualização */}
-      <View style={styles.toggleContainer}>
-        <TouchableOpacity 
-          style={[styles.toggleBtn, viewMode === 'country' && styles.toggleBtnActive]}
-          onPress={() => setViewMode('country')}
-        >
-          <Ionicons name="flag" size={16} color={viewMode === 'country' ? theme.colors.background : theme.colors.textSecondary} />
-          <Text style={[styles.toggleText, viewMode === 'country' && styles.toggleTextActive]}>Por País</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.toggleBtn, viewMode === 'all' && styles.toggleBtnActive]}
-          onPress={() => setViewMode('all')}
-        >
-          <Ionicons name="list" size={16} color={viewMode === 'all' ? theme.colors.background : theme.colors.textSecondary} />
-          <Text style={[styles.toggleText, viewMode === 'all' && styles.toggleTextActive]}>Todos</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Dica de favoritos */}
-      {user && (
-        <View style={styles.tipContainer}>
-          <Ionicons name="heart" size={14} color={theme.colors.primary} />
-          <Text style={styles.tipText}>Toque no coração para selecionar seu time favorito</Text>
+      {/* Loading inicial */}
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <Text style={styles.loadingText}>Carregando times...</Text>
+          <Text style={styles.loadingSubtext}>Buscando times de todas as ligas</Text>
         </View>
-      )}
-
-      {viewMode === 'country' ? (
-        <SectionList
-          sections={timesAgrupados}
-          keyExtractor={(item) => item.team.id.toString()}
-          renderItem={renderTimeItem}
-          renderSectionHeader={renderSectionHeader}
-          contentContainerStyle={styles.listContent}
-          stickySectionHeadersEnabled={true}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={theme.colors.primary}
-            />
-          }
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Ionicons name="shield-outline" size={60} color={theme.colors.textMuted} />
-              <Text style={styles.emptyText}>Nenhum time encontrado</Text>
-            </View>
-          }
-        />
       ) : (
-        <FlatList
-          data={timesFiltrados}
-          keyExtractor={(item) => item.team.id.toString()}
-          renderItem={renderTimeItem}
-          contentContainerStyle={styles.listContent}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={theme.colors.primary}
-            />
-          }
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Ionicons name="shield-outline" size={60} color={theme.colors.textMuted} />
-              <Text style={styles.emptyText}>Nenhum time encontrado</Text>
+        <>
+          {/* Toggle de visualização */}
+          <View style={styles.toggleContainer}>
+            <TouchableOpacity 
+              style={[styles.toggleBtn, viewMode === 'country' && styles.toggleBtnActive]}
+              onPress={() => setViewMode('country')}
+            >
+              <Ionicons name="flag" size={16} color={viewMode === 'country' ? theme.colors.background : theme.colors.textSecondary} />
+              <Text style={[styles.toggleText, viewMode === 'country' && styles.toggleTextActive]}>Por País</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.toggleBtn, viewMode === 'all' && styles.toggleBtnActive]}
+              onPress={() => setViewMode('all')}
+            >
+              <Ionicons name="list" size={16} color={viewMode === 'all' ? theme.colors.background : theme.colors.textSecondary} />
+              <Text style={[styles.toggleText, viewMode === 'all' && styles.toggleTextActive]}>Todos</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Contador de times */}
+          <View style={styles.counterContainer}>
+            <Text style={styles.counterText}>{times.length} times disponíveis</Text>
+          </View>
+
+          {/* Dica de favoritos */}
+          {user && (
+            <View style={styles.tipContainer}>
+              <Ionicons name="heart" size={14} color={theme.colors.primary} />
+              <Text style={styles.tipText}>Toque no coração para selecionar seu time favorito</Text>
             </View>
-          }
-        />
+          )}
+
+          {viewMode === 'country' ? (
+            <SectionList
+              sections={timesAgrupados}
+              keyExtractor={(item) => item.team.id.toString()}
+              renderItem={renderTimeItem}
+              renderSectionHeader={renderSectionHeader}
+              contentContainerStyle={styles.listContent}
+              stickySectionHeadersEnabled={true}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                  tintColor={theme.colors.primary}
+                />
+              }
+              ListEmptyComponent={
+                <View style={styles.emptyContainer}>
+                  <Ionicons name="shield-outline" size={60} color={theme.colors.textMuted} />
+                  <Text style={styles.emptyText}>Nenhum time encontrado</Text>
+                </View>
+              }
+            />
+          ) : (
+            <FlatList
+              data={timesFiltrados}
+              keyExtractor={(item) => item.team.id.toString()}
+              renderItem={renderTimeItem}
+              contentContainerStyle={styles.listContent}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                  tintColor={theme.colors.primary}
+                />
+              }
+              ListEmptyComponent={
+                <View style={styles.emptyContainer}>
+                  <Ionicons name="shield-outline" size={60} color={theme.colors.textMuted} />
+                  <Text style={styles.emptyText}>Nenhum time encontrado</Text>
+                </View>
+              }
+            />
+          )}
+        </>
       )}
     </View>
   );
@@ -364,5 +401,30 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.md,
     fontSize: theme.fontSize.md,
     color: theme.colors.textMuted,
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 100,
+  },
+  loadingText: {
+    marginTop: theme.spacing.md,
+    fontSize: theme.fontSize.lg,
+    fontWeight: theme.fontWeight.semibold,
+    color: theme.colors.textPrimary,
+  },
+  loadingSubtext: {
+    marginTop: theme.spacing.xs,
+    fontSize: theme.fontSize.sm,
+    color: theme.colors.textSecondary,
+  },
+  counterContainer: {
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+  },
+  counterText: {
+    fontSize: theme.fontSize.sm,
+    color: theme.colors.textSecondary,
   },
 });

@@ -20,6 +20,8 @@ import {
   getMatchStatus,
   getLiveMatches,
   getFixturesByDate,
+  getUpcomingMatches,
+  formatTimeBrasilia,
 } from '../../services/api';
 
 // Componente de Partida ao Vivo
@@ -56,7 +58,7 @@ function PartidaAoVivoCard({ partida, onPress }) {
         <View style={styles.placarContainer}>
           {isMatchScheduled(partida.fixture.status.short) ? (
             <Text style={styles.horario}>
-              {new Date(partida.fixture.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+              {formatTimeBrasilia(partida.fixture.date)}
             </Text>
           ) : (
             <>
@@ -147,11 +149,21 @@ export default function HomeScreen({ navigation }) {
       // Buscar partidas ao vivo
       const liveData = await getLiveMatches();
       console.log('Live data:', liveData?.results);
-      if (liveData?.response && Array.isArray(liveData.response)) {
-        setPartidasAoVivo(liveData.response.slice(0, 10));
+      
+      if (liveData?.response && liveData.response.length > 0) {
+        // Se há jogos ao vivo, mostrar todos
+        setPartidasAoVivo(liveData.response);
+      } else {
+        // Se não há jogos ao vivo, buscar próximas partidas
+        console.log('Nenhum jogo ao vivo, buscando próximas partidas...');
+        const upcomingData = await getUpcomingMatches(10);
+        console.log('Upcoming data:', upcomingData?.results);
+        if (upcomingData?.response && upcomingData.response.length > 0) {
+          setPartidasAoVivo(upcomingData.response);
+        }
       }
 
-      // Buscar partidas do dia
+      // Buscar partidas do dia para a seção de próximas partidas
       const today = new Date().toISOString().split('T')[0];
       console.log('Buscando partidas para:', today);
       const todayData = await getFixturesByDate(today);

@@ -13,7 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import theme from '../../utils/theme';
 import { useAuth } from '../../context/AuthContext';
-import { ATLETAS_MOCK, isMatchScheduled, getTeamFixtures, getTeamLastFixtures, getSquad } from '../../services/api';
+import { ATLETAS_MOCK, isMatchScheduled, getTeamFixtures, getTeamLastFixtures, getSquad, formatTimeBrasilia, formatToBrasilia } from '../../services/api';
 
 // Componente de Tab
 function TabButton({ title, active, onPress }) {
@@ -78,7 +78,7 @@ function PartidaItem({ partida, time, onPress }) {
     <TouchableOpacity style={styles.partidaItem} onPress={onPress}>
       <View style={styles.partidaData}>
         <Text style={styles.partidaDataText}>
-          {new Date(partida.fixture.date).toLocaleDateString('pt-BR', {
+          {formatToBrasilia(partida.fixture.date, {
             day: '2-digit',
             month: 'short',
           })}
@@ -102,7 +102,7 @@ function PartidaItem({ partida, time, onPress }) {
       <View style={styles.partidaResultado}>
         {isScheduled ? (
           <Text style={styles.horarioText}>
-            {new Date(partida.fixture.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+            {formatTimeBrasilia(partida.fixture.date)}
           </Text>
         ) : (
           <>

@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import theme from '../../utils/theme';
-import { isMatchLive, isMatchFinished, isMatchScheduled, getFixtureEvents, EVENTOS_MOCK } from '../../services/api';
+import { isMatchLive, isMatchFinished, isMatchScheduled, getFixtureEvents, EVENTOS_MOCK, formatTimeBrasilia, formatToBrasilia } from '../../services/api';
 
 export default function DetalhePartidaScreen({ route, navigation }) {
   const { partida } = route.params;
@@ -122,10 +122,10 @@ export default function DetalhePartidaScreen({ route, navigation }) {
             {isScheduled ? (
               <>
                 <Text style={styles.placarHora}>
-                  {new Date(partida.fixture.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                  {formatTimeBrasilia(partida.fixture.date)}
                 </Text>
                 <Text style={styles.placarData}>
-                  {new Date(partida.fixture.date).toLocaleDateString('pt-BR', {
+                  {formatToBrasilia(partida.fixture.date, {
                     weekday: 'short',
                     day: 'numeric',
                     month: 'short',

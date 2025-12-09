@@ -15,12 +15,13 @@ import { Ionicons } from '@expo/vector-icons';
 import theme from '../../utils/theme';
 import { 
   getStandings,
-  getNextFixtures,
-  getFixtures,
+  getMatches,
   getTopScorers,
   isMatchScheduled,
   isMatchLive,
   isMatchFinished,
+  formatTimeBrasilia,
+  formatDateBrasilia,
 } from '../../services/api';
 
 const { width } = Dimensions.get('window');
@@ -38,8 +39,32 @@ function TabButton({ title, active, onPress }) {
 }
 
 // Componente de linha da tabela
-function TabelaRow({ item, onPressTime }) {
+function TabelaRow({ item, onPressTime, competitionCode }) {
+  // Função para determinar a cor baseada na posição e competição
   const getPositionColor = (pos) => {
+    // Regras específicas para o Brasileirão 2025
+    // Flamengo campeão da Libertadores 2024 abriu +1 vaga para Libertadores
+    if (competitionCode === 'BSA') {
+      // 1° ao 5° - Libertadores (vaga extra por campeão da Libertadores estar no G4)
+      if (pos <= 5) return theme.colors.libertadores;
+      // 6° ao 13° - Sul-Americana
+      if (pos <= 13) return theme.colors.sulAmericana;
+      // 14° ao 16° - Sem classificação
+      if (pos <= 16) return theme.colors.textMuted;
+      // 17° ao 20° - Rebaixamento
+      return theme.colors.rebaixamento;
+    }
+    
+    // Regras para ligas europeias (Champions League)
+    if (['PL', 'PD', 'SA', 'BL1', 'FL1'].includes(competitionCode)) {
+      if (pos <= 4) return theme.colors.libertadores; // Champions League
+      if (pos <= 6) return theme.colors.sulAmericana; // Europa League
+      if (pos === 7) return '#FF9800'; // Conference League
+      if (pos >= 18) return theme.colors.rebaixamento;
+      return theme.colors.textMuted;
+    }
+    
+    // Padrão para outras competições
     if (pos <= 4) return theme.colors.libertadores;
     if (pos <= 6) return theme.colors.sulAmericana;
     if (pos >= 17) return theme.colors.rebaixamento;
@@ -97,7 +122,7 @@ function PartidaItem({ partida, onPress }) {
         <View style={styles.partidaPlacar}>
           {isScheduled ? (
             <Text style={styles.partidaHora}>
-              {new Date(partida.fixture.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+              {formatTimeBrasilia(partida.fixture.date)}
             </Text>
           ) : (
             <Text style={styles.partidaPlacarTexto}>
@@ -118,7 +143,7 @@ function PartidaItem({ partida, onPress }) {
         </View>
       </View>
       <Text style={styles.partidaData}>
-        {new Date(partida.fixture.date).toLocaleDateString('pt-BR')} • {partida.fixture.venue?.name}
+        {formatDateBrasilia(partida.fixture.date)} • {partida.fixture.venue?.name}
       </Text>
     </TouchableOpacity>
   );
@@ -170,38 +195,11 @@ export default function DetalheCampeonatoScreen({ route, navigation }) {
     { key: 'artilharia', title: 'Artilharia' },
   ];
 
-  // Determinar a temporada atual
-  // A API usa o ano de INÍCIO da temporada
-  // Ligas europeias 2024/2025 = season 2024
-  // Brasileirão 2024 = season 2024 (já terminou em dez 2024)
-  const getCurrentSeason = () => {
-    const currentYear = new Date().getFullYear();
-    const currentMonth = new Date().getMonth();
-    
-    // Verificar se é liga brasileira ou sul-americana
-    const isBrazilian = campeonato.country?.name === 'Brazil' || 
-                        campeonato.country?.code === 'BR';
-    const isSouthAmerican = campeonato.country?.name === 'South America' ||
-                            campeonato.league?.id === 13 || // Libertadores
-                            campeonato.league?.id === 11;   // Sudamericana
-    
-    if (isBrazilian || isSouthAmerican) {
-      // Brasileirão segue ano calendário
-      // Em dez/jan/fev mostra temporada do ano anterior (já finalizada)
-      // A partir de abril mostra temporada atual
-      return currentMonth >= 3 && currentMonth <= 11 ? currentYear : currentYear - 1;
-    }
-    
-    // Ligas europeias: temporada 2024/2025 usa season=2024
-    // Temporada vai de agosto a maio
-    // Se estivermos entre jan-jul, ainda é a temporada que começou no ano anterior
-    return currentMonth >= 7 ? currentYear : currentYear - 1;
-  };
-
-  // Usar a temporada definida no campeonato, mas recalcular se não houver dados
-  const season = getCurrentSeason();
+  // Código da competição na Football-Data.org (PL, BSA, CL, etc.)
+  const competitionCode = campeonato.league.code || campeonato.league.id;
+  const season = 2025; // Temporada atual para exibição
   
-  console.log('Campeonato:', campeonato.league.name, 'Season calculada:', season);
+  console.log('Campeonato:', campeonato.league.name, 'Code:', competitionCode);
 
   // Carregar dados ao montar o componente
   useEffect(() => {
@@ -233,8 +231,8 @@ export default function DetalheCampeonatoScreen({ route, navigation }) {
 
   const loadTabela = async () => {
     try {
-      const data = await getStandings(campeonato.league.id, season);
-      console.log('Standings data:', data?.results, 'season:', season);
+      const data = await getStandings(competitionCode);
+      console.log('Standings data:', data?.results);
       if (data?.response && data.response.length > 0 && data.response[0].league?.standings) {
         // A API retorna standings como array de grupos
         const standings = data.response[0].league.standings[0] || [];
@@ -247,13 +245,10 @@ export default function DetalheCampeonatoScreen({ route, navigation }) {
 
   const loadPartidas = async () => {
     try {
-      // Buscar próximas partidas
-      const proximasData = await getNextFixtures(campeonato.league.id, 15);
-      console.log('Proximas partidas:', proximasData?.results);
-      
-      // Buscar partidas recentes (últimas 10)
-      const todasPartidas = await getFixtures(campeonato.league.id, season);
-      console.log('Todas partidas:', todasPartidas?.results);
+      // Buscar partidas do campeonato
+      const todasPartidas = await getMatches(competitionCode, {});
+      console.log('Partidas:', todasPartidas?.results);
+      const proximasData = todasPartidas; // Partidas já vêm ordenadas
       
       // Combinar partidas - ordenar por data
       let todasOrdenadas = [];
@@ -282,7 +277,7 @@ export default function DetalheCampeonatoScreen({ route, navigation }) {
 
   const loadArtilheiros = async () => {
     try {
-      const data = await getTopScorers(campeonato.league.id, season);
+      const data = await getTopScorers(competitionCode);
       console.log('Artilheiros:', data?.results);
       if (data?.response && Array.isArray(data.response)) {
         setArtilheiros(data.response.slice(0, 20));
@@ -337,6 +332,7 @@ export default function DetalheCampeonatoScreen({ route, navigation }) {
                   <TabelaRow 
                     item={item} 
                     onPressTime={(time) => navigation.navigate('DetalheTime', { time })}
+                    competitionCode={competitionCode}
                   />
                 )}
                 scrollEnabled={false}
@@ -350,18 +346,40 @@ export default function DetalheCampeonatoScreen({ route, navigation }) {
             )}
             {tabela.length > 0 && (
               <View style={styles.legenda}>
-                <View style={styles.legendaItem}>
-                  <View style={[styles.legendaCor, { backgroundColor: theme.colors.libertadores }]} />
-                  <Text style={styles.legendaTexto}>Champions/Libertadores</Text>
-                </View>
-                <View style={styles.legendaItem}>
-                  <View style={[styles.legendaCor, { backgroundColor: theme.colors.sulAmericana }]} />
-                  <Text style={styles.legendaTexto}>Europa League/Sul-Americana</Text>
-                </View>
-                <View style={styles.legendaItem}>
-                  <View style={[styles.legendaCor, { backgroundColor: theme.colors.rebaixamento }]} />
-                  <Text style={styles.legendaTexto}>Rebaixamento</Text>
-                </View>
+                {competitionCode === 'BSA' ? (
+                  // Legenda específica para o Brasileirão 2025
+                  <>
+                    <View style={styles.legendaItem}>
+                      <View style={[styles.legendaCor, { backgroundColor: theme.colors.libertadores }]} />
+                      <Text style={styles.legendaTexto}>Libertadores (1°-5°)*</Text>
+                    </View>
+                    <View style={styles.legendaItem}>
+                      <View style={[styles.legendaCor, { backgroundColor: theme.colors.sulAmericana }]} />
+                      <Text style={styles.legendaTexto}>Sul-Americana (6°-13°)</Text>
+                    </View>
+                    <View style={styles.legendaItem}>
+                      <View style={[styles.legendaCor, { backgroundColor: theme.colors.rebaixamento }]} />
+                      <Text style={styles.legendaTexto}>Rebaixamento (17°-20°)</Text>
+                    </View>
+                    <Text style={styles.legendaNota}>*Vaga extra: Flamengo campeão da Libertadores 2024</Text>
+                  </>
+                ) : (
+                  // Legenda para ligas europeias
+                  <>
+                    <View style={styles.legendaItem}>
+                      <View style={[styles.legendaCor, { backgroundColor: theme.colors.libertadores }]} />
+                      <Text style={styles.legendaTexto}>Champions League</Text>
+                    </View>
+                    <View style={styles.legendaItem}>
+                      <View style={[styles.legendaCor, { backgroundColor: theme.colors.sulAmericana }]} />
+                      <Text style={styles.legendaTexto}>Europa League</Text>
+                    </View>
+                    <View style={styles.legendaItem}>
+                      <View style={[styles.legendaCor, { backgroundColor: theme.colors.rebaixamento }]} />
+                      <Text style={styles.legendaTexto}>Rebaixamento</Text>
+                    </View>
+                  </>
+                )}
               </View>
             )}
           </View>
@@ -619,6 +637,12 @@ const styles = StyleSheet.create({
   legendaTexto: {
     fontSize: theme.fontSize.xs,
     color: theme.colors.textSecondary,
+  },
+  legendaNota: {
+    fontSize: theme.fontSize.xs - 1,
+    color: theme.colors.textMuted,
+    fontStyle: 'italic',
+    marginTop: theme.spacing.xs,
   },
 
   // Jogos
