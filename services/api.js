@@ -3,6 +3,7 @@
 // API com dados atualizados de 2025!
 
 const API_BASE_URL = 'https://api.football-data.org/v4';
+const SPORTSDB_BASE_URL = 'https://www.thesportsdb.com/api/v1/json/3';
 
 // Token da API Football-Data.org
 const API_KEY = '1edda1f6051f483da6d6f5078f70bae4';
@@ -10,6 +11,41 @@ const API_KEY = '1edda1f6051f483da6d6f5078f70bae4';
 const headers = {
   'X-Auth-Token': API_KEY,
 };
+
+// Cache de fotos de jogadores para evitar requisições repetidas
+const playerPhotoCache = new Map();
+
+// Buscar foto do jogador no TheSportsDB
+async function fetchPlayerPhoto(playerName) {
+  if (!playerName) return null;
+  
+  // Verificar cache primeiro
+  if (playerPhotoCache.has(playerName)) {
+    return playerPhotoCache.get(playerName);
+  }
+  
+  try {
+    const response = await fetch(`${SPORTSDB_BASE_URL}/searchplayers.php?p=${encodeURIComponent(playerName)}`);
+    const data = await response.json();
+    
+    if (data.player && data.player.length > 0) {
+      // Buscar jogador de futebol mais relevante
+      const soccerPlayer = data.player.find(p => p.strSport === 'Soccer' && (p.strThumb || p.strCutout));
+      const photo = soccerPlayer?.strCutout || soccerPlayer?.strThumb || null;
+      
+      // Salvar no cache
+      playerPhotoCache.set(playerName, photo);
+      return photo;
+    }
+  } catch (error) {
+    console.log('Erro ao buscar foto do jogador:', playerName);
+  }
+  
+  // Se não encontrar, usar avatar gerado
+  const fallbackUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(playerName)}&background=1a1a2e&color=00ff88&size=128&bold=true`;
+  playerPhotoCache.set(playerName, fallbackUrl);
+  return fallbackUrl;
+}
 
 // Função auxiliar para fazer requisições
 async function fetchAPI(endpoint, params = {}) {
@@ -200,47 +236,45 @@ export async function getNextFixtures(competitionCode, limit = 10) {
 
 // ==================== ARTILHEIROS ====================
 
-// Gerar URL de foto placeholder para jogadores
-function getPlayerPhotoUrl(playerName, playerId) {
-  // Usar UI Avatars para gerar avatar baseado no nome
-  const initials = playerName?.split(' ')
-    .map(n => n[0])
-    .slice(0, 2)
-    .join('') || 'JD';
-  return `https://ui-avatars.com/api/?name=${encodeURIComponent(playerName || 'Player')}&background=1a1a2e&color=00ff88&size=128&bold=true`;
-}
-
 export async function getTopScorers(competitionCode, limit = 20) {
   const data = await fetchAPI(`/competitions/${competitionCode}/scorers`, { limit });
   if (data && data.scorers) {
+    // Buscar fotos dos jogadores em paralelo (limitado a 10 para não sobrecarregar)
+    const scorersWithPhotos = await Promise.all(
+      data.scorers.slice(0, limit).map(async (scorer) => {
+        const photo = await fetchPlayerPhoto(scorer.player?.name);
+        return {
+          player: {
+            id: scorer.player?.id,
+            name: scorer.player?.name,
+            firstName: scorer.player?.firstName,
+            lastName: scorer.player?.lastName,
+            nationality: scorer.player?.nationality,
+            dateOfBirth: scorer.player?.dateOfBirth,
+            section: scorer.player?.section,
+            position: scorer.player?.position,
+            shirtNumber: scorer.player?.shirtNumber,
+            photo: photo,
+          },
+          statistics: [{
+            team: {
+              id: scorer.team?.id,
+              name: scorer.team?.name,
+              logo: scorer.team?.crest,
+            },
+            goals: {
+              total: scorer.goals,
+            },
+            assists: scorer.assists || 0,
+            penalties: scorer.penalties || 0,
+          }]
+        };
+      })
+    );
+    
     return {
-      response: data.scorers.map(scorer => ({
-        player: {
-          id: scorer.player?.id,
-          name: scorer.player?.name,
-          firstName: scorer.player?.firstName,
-          lastName: scorer.player?.lastName,
-          nationality: scorer.player?.nationality,
-          dateOfBirth: scorer.player?.dateOfBirth,
-          section: scorer.player?.section,
-          position: scorer.player?.position,
-          shirtNumber: scorer.player?.shirtNumber,
-          photo: getPlayerPhotoUrl(scorer.player?.name, scorer.player?.id),
-        },
-        statistics: [{
-          team: {
-            id: scorer.team?.id,
-            name: scorer.team?.name,
-            logo: scorer.team?.crest,
-          },
-          goals: {
-            total: scorer.goals,
-          },
-          assists: scorer.assists || 0,
-          penalties: scorer.penalties || 0,
-        }]
-      })),
-      results: data.scorers.length
+      response: scorersWithPhotos,
+      results: scorersWithPhotos.length
     };
   }
   return { response: [], results: 0 };
@@ -347,19 +381,27 @@ export async function getTeamLastFixtures(teamId, limit = 10) {
 export async function getSquad(teamId) {
   const data = await fetchAPI(`/teams/${teamId}`);
   if (data && data.squad) {
-    return {
-      response: [{
-        players: data.squad.map(player => ({
+    // Buscar fotos dos jogadores em paralelo (máximo 25 para não sobrecarregar)
+    const playersWithPhotos = await Promise.all(
+      data.squad.slice(0, 30).map(async (player) => {
+        const photo = await fetchPlayerPhoto(player.name);
+        return {
           id: player.id,
           name: player.name,
-          photo: getPlayerPhotoUrl(player.name, player.id),
+          photo: photo,
           nationality: player.nationality,
           dateOfBirth: player.dateOfBirth,
           position: player.position,
           number: player.shirtNumber,
-        }))
+        };
+      })
+    );
+    
+    return {
+      response: [{
+        players: playersWithPhotos
       }],
-      results: data.squad.length
+      results: playersWithPhotos.length
     };
   }
   return { response: [], results: 0 };
