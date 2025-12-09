@@ -180,23 +180,351 @@ export const LEAGUE_IDS = {
   // Brasil
   BRASILEIRAO_A: 71,
   BRASILEIRAO_B: 72,
+  BRASILEIRAO_C: 75,
+  BRASILEIRAO_D: 76,
   COPA_DO_BRASIL: 73,
   // Sul-Americanos
   LIBERTADORES: 13,
   SULAMERICANA: 11,
+  RECOPA: 15,
   // Europa - Top 5 Ligas
   PREMIER_LEAGUE: 39,
+  CHAMPIONSHIP: 40,
   LA_LIGA: 140,
+  LA_LIGA_2: 141,
   SERIE_A: 135,
+  SERIE_B: 136,
   BUNDESLIGA: 78,
+  BUNDESLIGA_2: 79,
   LIGUE_1: 61,
+  LIGUE_2: 62,
+  // Portugal
+  PRIMEIRA_LIGA: 94,
+  // Holanda
+  EREDIVISIE: 88,
   // Competições Europeias
   CHAMPIONS_LEAGUE: 2,
   EUROPA_LEAGUE: 3,
   CONFERENCE_LEAGUE: 848,
+  // Argentina
+  LIGA_PROFESIONAL: 128,
+  // Outros
+  MLS: 253,
+  LIGA_MX: 262,
 };
 
-// Campeonatos mockados - Brasileiros e Europeus
+// Estrutura organizada de campeonatos por categoria
+export const CAMPEONATOS_ESTRUTURADOS = {
+  continentais: {
+    europa: {
+      nome: 'Europa',
+      competicoes: [
+        {
+          league: { id: 2, name: 'UEFA Champions League', type: 'Cup', logo: 'https://media.api-sports.io/football/leagues/2.png' },
+          country: { name: 'Europe', code: null, flag: null },
+          seasons: [{ year: 2024, current: true }],
+        },
+        {
+          league: { id: 3, name: 'UEFA Europa League', type: 'Cup', logo: 'https://media.api-sports.io/football/leagues/3.png' },
+          country: { name: 'Europe', code: null, flag: null },
+          seasons: [{ year: 2024, current: true }],
+        },
+        {
+          league: { id: 848, name: 'UEFA Conference League', type: 'Cup', logo: 'https://media.api-sports.io/football/leagues/848.png' },
+          country: { name: 'Europe', code: null, flag: null },
+          seasons: [{ year: 2024, current: true }],
+        },
+      ],
+    },
+    sulamericana: {
+      nome: 'América do Sul',
+      competicoes: [
+        {
+          league: { id: 13, name: 'CONMEBOL Libertadores', type: 'Cup', logo: 'https://media.api-sports.io/football/leagues/13.png' },
+          country: { name: 'South America', code: null, flag: null },
+          seasons: [{ year: 2025, current: true }],
+        },
+        {
+          league: { id: 11, name: 'CONMEBOL Sudamericana', type: 'Cup', logo: 'https://media.api-sports.io/football/leagues/11.png' },
+          country: { name: 'South America', code: null, flag: null },
+          seasons: [{ year: 2025, current: true }],
+        },
+        {
+          league: { id: 15, name: 'CONMEBOL Recopa', type: 'Cup', logo: 'https://media.api-sports.io/football/leagues/15.png' },
+          country: { name: 'South America', code: null, flag: null },
+          seasons: [{ year: 2025, current: true }],
+        },
+      ],
+    },
+  },
+  nacionais: {
+    brasil: {
+      nome: 'Brasil',
+      flag: 'https://media.api-sports.io/flags/br.svg',
+      divisoes: [
+        {
+          league: { id: 71, name: 'Brasileirão Série A', type: 'League', logo: 'https://media.api-sports.io/football/leagues/71.png' },
+          country: { name: 'Brazil', code: 'BR', flag: 'https://media.api-sports.io/flags/br.svg' },
+          seasons: [{ year: 2025, current: true }],
+        },
+        {
+          league: { id: 72, name: 'Brasileirão Série B', type: 'League', logo: 'https://media.api-sports.io/football/leagues/72.png' },
+          country: { name: 'Brazil', code: 'BR', flag: 'https://media.api-sports.io/flags/br.svg' },
+          seasons: [{ year: 2025, current: true }],
+        },
+        {
+          league: { id: 75, name: 'Brasileirão Série C', type: 'League', logo: 'https://media.api-sports.io/football/leagues/75.png' },
+          country: { name: 'Brazil', code: 'BR', flag: 'https://media.api-sports.io/flags/br.svg' },
+          seasons: [{ year: 2025, current: true }],
+        },
+        {
+          league: { id: 76, name: 'Brasileirão Série D', type: 'League', logo: 'https://media.api-sports.io/football/leagues/76.png' },
+          country: { name: 'Brazil', code: 'BR', flag: 'https://media.api-sports.io/flags/br.svg' },
+          seasons: [{ year: 2025, current: true }],
+        },
+        {
+          league: { id: 73, name: 'Copa do Brasil', type: 'Cup', logo: 'https://media.api-sports.io/football/leagues/73.png' },
+          country: { name: 'Brazil', code: 'BR', flag: 'https://media.api-sports.io/flags/br.svg' },
+          seasons: [{ year: 2025, current: true }],
+        },
+      ],
+    },
+    inglaterra: {
+      nome: 'Inglaterra',
+      flag: 'https://media.api-sports.io/flags/gb.svg',
+      divisoes: [
+        {
+          league: { id: 39, name: 'Premier League', type: 'League', logo: 'https://media.api-sports.io/football/leagues/39.png' },
+          country: { name: 'England', code: 'GB', flag: 'https://media.api-sports.io/flags/gb.svg' },
+          seasons: [{ year: 2024, current: true }],
+        },
+        {
+          league: { id: 40, name: 'Championship', type: 'League', logo: 'https://media.api-sports.io/football/leagues/40.png' },
+          country: { name: 'England', code: 'GB', flag: 'https://media.api-sports.io/flags/gb.svg' },
+          seasons: [{ year: 2024, current: true }],
+        },
+        {
+          league: { id: 41, name: 'League One', type: 'League', logo: 'https://media.api-sports.io/football/leagues/41.png' },
+          country: { name: 'England', code: 'GB', flag: 'https://media.api-sports.io/flags/gb.svg' },
+          seasons: [{ year: 2024, current: true }],
+        },
+        {
+          league: { id: 42, name: 'League Two', type: 'League', logo: 'https://media.api-sports.io/football/leagues/42.png' },
+          country: { name: 'England', code: 'GB', flag: 'https://media.api-sports.io/flags/gb.svg' },
+          seasons: [{ year: 2024, current: true }],
+        },
+        {
+          league: { id: 45, name: 'FA Cup', type: 'Cup', logo: 'https://media.api-sports.io/football/leagues/45.png' },
+          country: { name: 'England', code: 'GB', flag: 'https://media.api-sports.io/flags/gb.svg' },
+          seasons: [{ year: 2024, current: true }],
+        },
+        {
+          league: { id: 48, name: 'EFL Cup', type: 'Cup', logo: 'https://media.api-sports.io/football/leagues/48.png' },
+          country: { name: 'England', code: 'GB', flag: 'https://media.api-sports.io/flags/gb.svg' },
+          seasons: [{ year: 2024, current: true }],
+        },
+      ],
+    },
+    espanha: {
+      nome: 'Espanha',
+      flag: 'https://media.api-sports.io/flags/es.svg',
+      divisoes: [
+        {
+          league: { id: 140, name: 'La Liga', type: 'League', logo: 'https://media.api-sports.io/football/leagues/140.png' },
+          country: { name: 'Spain', code: 'ES', flag: 'https://media.api-sports.io/flags/es.svg' },
+          seasons: [{ year: 2024, current: true }],
+        },
+        {
+          league: { id: 141, name: 'La Liga 2', type: 'League', logo: 'https://media.api-sports.io/football/leagues/141.png' },
+          country: { name: 'Spain', code: 'ES', flag: 'https://media.api-sports.io/flags/es.svg' },
+          seasons: [{ year: 2024, current: true }],
+        },
+        {
+          league: { id: 143, name: 'Copa del Rey', type: 'Cup', logo: 'https://media.api-sports.io/football/leagues/143.png' },
+          country: { name: 'Spain', code: 'ES', flag: 'https://media.api-sports.io/flags/es.svg' },
+          seasons: [{ year: 2024, current: true }],
+        },
+      ],
+    },
+    italia: {
+      nome: 'Itália',
+      flag: 'https://media.api-sports.io/flags/it.svg',
+      divisoes: [
+        {
+          league: { id: 135, name: 'Serie A', type: 'League', logo: 'https://media.api-sports.io/football/leagues/135.png' },
+          country: { name: 'Italy', code: 'IT', flag: 'https://media.api-sports.io/flags/it.svg' },
+          seasons: [{ year: 2024, current: true }],
+        },
+        {
+          league: { id: 136, name: 'Serie B', type: 'League', logo: 'https://media.api-sports.io/football/leagues/136.png' },
+          country: { name: 'Italy', code: 'IT', flag: 'https://media.api-sports.io/flags/it.svg' },
+          seasons: [{ year: 2024, current: true }],
+        },
+        {
+          league: { id: 137, name: 'Coppa Italia', type: 'Cup', logo: 'https://media.api-sports.io/football/leagues/137.png' },
+          country: { name: 'Italy', code: 'IT', flag: 'https://media.api-sports.io/flags/it.svg' },
+          seasons: [{ year: 2024, current: true }],
+        },
+      ],
+    },
+    alemanha: {
+      nome: 'Alemanha',
+      flag: 'https://media.api-sports.io/flags/de.svg',
+      divisoes: [
+        {
+          league: { id: 78, name: 'Bundesliga', type: 'League', logo: 'https://media.api-sports.io/football/leagues/78.png' },
+          country: { name: 'Germany', code: 'DE', flag: 'https://media.api-sports.io/flags/de.svg' },
+          seasons: [{ year: 2024, current: true }],
+        },
+        {
+          league: { id: 79, name: '2. Bundesliga', type: 'League', logo: 'https://media.api-sports.io/football/leagues/79.png' },
+          country: { name: 'Germany', code: 'DE', flag: 'https://media.api-sports.io/flags/de.svg' },
+          seasons: [{ year: 2024, current: true }],
+        },
+        {
+          league: { id: 81, name: 'DFB Pokal', type: 'Cup', logo: 'https://media.api-sports.io/football/leagues/81.png' },
+          country: { name: 'Germany', code: 'DE', flag: 'https://media.api-sports.io/flags/de.svg' },
+          seasons: [{ year: 2024, current: true }],
+        },
+      ],
+    },
+    franca: {
+      nome: 'França',
+      flag: 'https://media.api-sports.io/flags/fr.svg',
+      divisoes: [
+        {
+          league: { id: 61, name: 'Ligue 1', type: 'League', logo: 'https://media.api-sports.io/football/leagues/61.png' },
+          country: { name: 'France', code: 'FR', flag: 'https://media.api-sports.io/flags/fr.svg' },
+          seasons: [{ year: 2024, current: true }],
+        },
+        {
+          league: { id: 62, name: 'Ligue 2', type: 'League', logo: 'https://media.api-sports.io/football/leagues/62.png' },
+          country: { name: 'France', code: 'FR', flag: 'https://media.api-sports.io/flags/fr.svg' },
+          seasons: [{ year: 2024, current: true }],
+        },
+        {
+          league: { id: 66, name: 'Coupe de France', type: 'Cup', logo: 'https://media.api-sports.io/football/leagues/66.png' },
+          country: { name: 'France', code: 'FR', flag: 'https://media.api-sports.io/flags/fr.svg' },
+          seasons: [{ year: 2024, current: true }],
+        },
+      ],
+    },
+    portugal: {
+      nome: 'Portugal',
+      flag: 'https://media.api-sports.io/flags/pt.svg',
+      divisoes: [
+        {
+          league: { id: 94, name: 'Primeira Liga', type: 'League', logo: 'https://media.api-sports.io/football/leagues/94.png' },
+          country: { name: 'Portugal', code: 'PT', flag: 'https://media.api-sports.io/flags/pt.svg' },
+          seasons: [{ year: 2024, current: true }],
+        },
+        {
+          league: { id: 95, name: 'Liga Portugal 2', type: 'League', logo: 'https://media.api-sports.io/football/leagues/95.png' },
+          country: { name: 'Portugal', code: 'PT', flag: 'https://media.api-sports.io/flags/pt.svg' },
+          seasons: [{ year: 2024, current: true }],
+        },
+        {
+          league: { id: 96, name: 'Taça de Portugal', type: 'Cup', logo: 'https://media.api-sports.io/football/leagues/96.png' },
+          country: { name: 'Portugal', code: 'PT', flag: 'https://media.api-sports.io/flags/pt.svg' },
+          seasons: [{ year: 2024, current: true }],
+        },
+      ],
+    },
+    holanda: {
+      nome: 'Holanda',
+      flag: 'https://media.api-sports.io/flags/nl.svg',
+      divisoes: [
+        {
+          league: { id: 88, name: 'Eredivisie', type: 'League', logo: 'https://media.api-sports.io/football/leagues/88.png' },
+          country: { name: 'Netherlands', code: 'NL', flag: 'https://media.api-sports.io/flags/nl.svg' },
+          seasons: [{ year: 2024, current: true }],
+        },
+        {
+          league: { id: 89, name: 'Eerste Divisie', type: 'League', logo: 'https://media.api-sports.io/football/leagues/89.png' },
+          country: { name: 'Netherlands', code: 'NL', flag: 'https://media.api-sports.io/flags/nl.svg' },
+          seasons: [{ year: 2024, current: true }],
+        },
+        {
+          league: { id: 90, name: 'KNVB Beker', type: 'Cup', logo: 'https://media.api-sports.io/football/leagues/90.png' },
+          country: { name: 'Netherlands', code: 'NL', flag: 'https://media.api-sports.io/flags/nl.svg' },
+          seasons: [{ year: 2024, current: true }],
+        },
+      ],
+    },
+    argentina: {
+      nome: 'Argentina',
+      flag: 'https://media.api-sports.io/flags/ar.svg',
+      divisoes: [
+        {
+          league: { id: 128, name: 'Liga Profesional Argentina', type: 'League', logo: 'https://media.api-sports.io/football/leagues/128.png' },
+          country: { name: 'Argentina', code: 'AR', flag: 'https://media.api-sports.io/flags/ar.svg' },
+          seasons: [{ year: 2024, current: true }],
+        },
+        {
+          league: { id: 129, name: 'Primera Nacional', type: 'League', logo: 'https://media.api-sports.io/football/leagues/129.png' },
+          country: { name: 'Argentina', code: 'AR', flag: 'https://media.api-sports.io/flags/ar.svg' },
+          seasons: [{ year: 2024, current: true }],
+        },
+        {
+          league: { id: 130, name: 'Copa Argentina', type: 'Cup', logo: 'https://media.api-sports.io/football/leagues/130.png' },
+          country: { name: 'Argentina', code: 'AR', flag: 'https://media.api-sports.io/flags/ar.svg' },
+          seasons: [{ year: 2024, current: true }],
+        },
+      ],
+    },
+    eua: {
+      nome: 'Estados Unidos',
+      flag: 'https://media.api-sports.io/flags/us.svg',
+      divisoes: [
+        {
+          league: { id: 253, name: 'MLS', type: 'League', logo: 'https://media.api-sports.io/football/leagues/253.png' },
+          country: { name: 'USA', code: 'US', flag: 'https://media.api-sports.io/flags/us.svg' },
+          seasons: [{ year: 2024, current: true }],
+        },
+      ],
+    },
+    mexico: {
+      nome: 'México',
+      flag: 'https://media.api-sports.io/flags/mx.svg',
+      divisoes: [
+        {
+          league: { id: 262, name: 'Liga MX', type: 'League', logo: 'https://media.api-sports.io/football/leagues/262.png' },
+          country: { name: 'Mexico', code: 'MX', flag: 'https://media.api-sports.io/flags/mx.svg' },
+          seasons: [{ year: 2024, current: true }],
+        },
+        {
+          league: { id: 263, name: 'Liga de Expansión MX', type: 'League', logo: 'https://media.api-sports.io/football/leagues/263.png' },
+          country: { name: 'Mexico', code: 'MX', flag: 'https://media.api-sports.io/flags/mx.svg' },
+          seasons: [{ year: 2024, current: true }],
+        },
+      ],
+    },
+  },
+};
+
+// Helper para obter todos os campeonatos em lista plana
+export function getAllCampeonatos() {
+  const todos = [];
+  
+  // Adicionar continentais
+  Object.values(CAMPEONATOS_ESTRUTURADOS.continentais).forEach(cont => {
+    todos.push(...cont.competicoes);
+  });
+  
+  // Adicionar nacionais
+  Object.values(CAMPEONATOS_ESTRUTURADOS.nacionais).forEach(pais => {
+    todos.push(...pais.divisoes);
+  });
+  
+  return todos;
+}
+
+// Helper para obter times de um país específico
+export function getTimesByCountry(countryName) {
+  return TIMES_MOCK.filter(t => t.team.country === countryName);
+}
+
+// Campeonatos mockados - Brasileiros e Europeus (compatibilidade)
 export const CAMPEONATOS_MOCK = [
   // BRASIL
   {
@@ -1568,6 +1896,53 @@ export const ARTILHARIA_MOCK = [...ATLETAS_MOCK]
     player: atleta.player,
     statistics: atleta.statistics,
   }));
+
+// Eventos de partidas mockados (com nomes reais dos jogadores)
+export const EVENTOS_MOCK = {
+  // Flamengo 2 x 1 Palmeiras
+  1001: [
+    { minuto: 23, tipo: 'gol', time: 'mandante', jogador: 'Gabriel Barbosa', assistencia: 'Arrascaeta' },
+    { minuto: 38, tipo: 'cartao_amarelo', time: 'visitante', jogador: 'Gustavo Gómez', assistencia: null },
+    { minuto: 52, tipo: 'gol', time: 'visitante', jogador: 'Raphael Veiga', assistencia: 'Endrick' },
+    { minuto: 67, tipo: 'cartao_amarelo', time: 'mandante', jogador: 'Gerson', assistencia: null },
+    { minuto: 78, tipo: 'gol', time: 'mandante', jogador: 'Pedro', assistencia: 'Everton Ribeiro' },
+  ],
+  // Fluminense 1 x 1 Botafogo (ao vivo)
+  1003: [
+    { minuto: 12, tipo: 'gol', time: 'visitante', jogador: 'Luiz Henrique', assistencia: 'Tiquinho Soares' },
+    { minuto: 45, tipo: 'cartao_amarelo', time: 'mandante', jogador: 'André', assistencia: null },
+    { minuto: 58, tipo: 'gol', time: 'mandante', jogador: 'Germán Cano', assistencia: 'Jhon Arias' },
+  ],
+  // Grêmio 3 x 2 Internacional
+  1004: [
+    { minuto: 11, tipo: 'gol', time: 'mandante', jogador: 'Cristaldo', assistencia: 'Pavón' },
+    { minuto: 28, tipo: 'gol', time: 'visitante', jogador: 'Borré', assistencia: 'Alan Patrick' },
+    { minuto: 53, tipo: 'gol', time: 'mandante', jogador: 'Suárez', assistencia: 'Cristaldo' },
+    { minuto: 67, tipo: 'cartao_amarelo', time: 'visitante', jogador: 'Mercado', assistencia: null },
+    { minuto: 72, tipo: 'gol', time: 'visitante', jogador: 'Valencia', assistencia: 'Wanderson' },
+    { minuto: 85, tipo: 'gol', time: 'mandante', jogador: 'Galdino', assistencia: 'Suárez' },
+  ],
+  // Man United 1 x 2 Man City
+  2001: [
+    { minuto: 18, tipo: 'gol', time: 'visitante', jogador: 'Erling Haaland', assistencia: 'Kevin De Bruyne' },
+    { minuto: 34, tipo: 'cartao_amarelo', time: 'mandante', jogador: 'Casemiro', assistencia: null },
+    { minuto: 56, tipo: 'gol', time: 'mandante', jogador: 'Marcus Rashford', assistencia: 'Bruno Fernandes' },
+    { minuto: 79, tipo: 'gol', time: 'visitante', jogador: 'Phil Foden', assistencia: 'Bernardo Silva' },
+  ],
+  // Real Madrid 2 x 2 Barcelona
+  3001: [
+    { minuto: 15, tipo: 'gol', time: 'mandante', jogador: 'Vinícius Júnior', assistencia: 'Jude Bellingham' },
+    { minuto: 33, tipo: 'gol', time: 'visitante', jogador: 'Robert Lewandowski', assistencia: 'Pedri' },
+    { minuto: 61, tipo: 'cartao_amarelo', time: 'mandante', jogador: 'Tchouaméni', assistencia: null },
+    { minuto: 68, tipo: 'gol', time: 'visitante', jogador: 'Lamine Yamal', assistencia: 'Raphinha' },
+    { minuto: 82, tipo: 'gol', time: 'mandante', jogador: 'Jude Bellingham', assistencia: 'Federico Valverde' },
+  ],
+  // Bayern 2 x 0 Dortmund (ao vivo)
+  5001: [
+    { minuto: 14, tipo: 'gol', time: 'mandante', jogador: 'Harry Kane', assistencia: 'Jamal Musiala' },
+    { minuto: 29, tipo: 'gol', time: 'mandante', jogador: 'Leroy Sané', assistencia: 'Harry Kane' },
+  ],
+};
 
 // ==================== HELPERS ====================
 
