@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,14 +8,19 @@ import {
   Image,
   FlatList,
   Dimensions,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import theme from '../../utils/theme';
 import { 
-  TABELA_MOCK, 
-  PARTIDAS_MOCK, 
-  ARTILHARIA_MOCK,
-  isMatchScheduled 
+  getStandings,
+  getNextFixtures,
+  getFixtures,
+  getTopScorers,
+  isMatchScheduled,
+  isMatchLive,
+  isMatchFinished,
 } from '../../services/api';
 
 const { width } = Dimensions.get('window');
@@ -120,34 +125,44 @@ function PartidaItem({ partida, onPress }) {
 }
 
 // Componente de Artilheiro
-function ArtilheiroItem({ item, posicao }) {
+function ArtilheiroItem({ item, posicao, onPress }) {
+  if (!item || !item.player) return null;
+  
   return (
-    <View style={styles.artilheiroItem}>
+    <TouchableOpacity style={styles.artilheiroItem} onPress={onPress}>
       <Text style={styles.artilheiroPosicao}>{posicao}</Text>
       <View style={styles.artilheiroInfo}>
         <View style={styles.artilheiroAvatar}>
-          {item.player.photo ? (
+          {item.player?.photo ? (
             <Image source={{ uri: item.player.photo }} style={styles.artilheiroFoto} />
           ) : (
             <Ionicons name="person" size={20} color={theme.colors.textSecondary} />
           )}
         </View>
         <View>
-          <Text style={styles.artilheiroNome}>{item.player.name}</Text>
-          <Text style={styles.artilheiroTime}>{item.statistics[0]?.team?.name}</Text>
+          <Text style={styles.artilheiroNome}>{item.player?.name || 'Desconhecido'}</Text>
+          <Text style={styles.artilheiroTime}>{item.statistics?.[0]?.team?.name || '-'}</Text>
         </View>
       </View>
       <View style={styles.artilheiroGols}>
         <Ionicons name="football" size={14} color={theme.colors.secondary} />
-        <Text style={styles.artilheiroGolsTexto}>{item.statistics[0]?.goals?.total}</Text>
+        <Text style={styles.artilheiroGolsTexto}>{item.statistics?.[0]?.goals?.total || 0}</Text>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 
 export default function DetalheCampeonatoScreen({ route, navigation }) {
   const { campeonato } = route.params;
   const [activeTab, setActiveTab] = useState('tabela');
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(null);
+  
+  // Estados para dados da API
+  const [tabela, setTabela] = useState([]);
+  const [partidas, setPartidas] = useState([]);
+  const [artilheiros, setArtilheiros] = useState([]);
 
   const tabs = [
     { key: 'tabela', title: 'Tabela' },
@@ -155,11 +170,127 @@ export default function DetalheCampeonatoScreen({ route, navigation }) {
     { key: 'artilharia', title: 'Artilharia' },
   ];
 
-  const partidasDoCampeonato = PARTIDAS_MOCK.filter(
-    p => p.league.id === campeonato.league.id
-  );
+  // Determinar a temporada atual
+  const getCurrentSeason = () => {
+    const currentYear = new Date().getFullYear();
+    const currentMonth = new Date().getMonth();
+    // Ligas europeias começam em agosto, então se estivermos antes de agosto, é a temporada anterior
+    if (campeonato.country?.name === 'Brazil') {
+      return currentYear; // Brasileirão segue o ano calendário
+    }
+    // Ligas europeias
+    return currentMonth >= 7 ? currentYear : currentYear - 1;
+  };
+
+  const season = campeonato.seasons?.find(s => s.current)?.year || getCurrentSeason();
+
+  // Carregar dados ao montar o componente
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      await Promise.all([
+        loadTabela(),
+        loadPartidas(),
+        loadArtilheiros(),
+      ]);
+    } catch (err) {
+      console.error('Erro ao carregar dados:', err);
+      setError('Erro ao carregar dados. Tente novamente.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  };
+
+  const loadTabela = async () => {
+    try {
+      const data = await getStandings(campeonato.league.id, season);
+      if (data && data.length > 0 && data[0].league?.standings) {
+        // A API retorna standings como array de grupos
+        const standings = data[0].league.standings[0] || [];
+        setTabela(standings);
+      }
+    } catch (err) {
+      console.error('Erro ao carregar tabela:', err);
+    }
+  };
+
+  const loadPartidas = async () => {
+    try {
+      // Buscar próximas partidas
+      const proximasData = await getNextFixtures(campeonato.league.id, 15);
+      
+      // Buscar partidas recentes (últimas 10)
+      const todasPartidas = await getFixtures(campeonato.league.id, season);
+      
+      // Combinar partidas - ordenar por data
+      let todasOrdenadas = [];
+      
+      if (Array.isArray(todasPartidas)) {
+        // Filtrar partidas recentes (últimos 7 dias) e futuras (próximos 14 dias)
+        const agora = new Date();
+        const seteDiasAtras = new Date(agora.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const quatorzeDiasFrente = new Date(agora.getTime() + 14 * 24 * 60 * 60 * 1000);
+        
+        todasOrdenadas = todasPartidas
+          .filter(p => {
+            const dataPartida = new Date(p.fixture.date);
+            return dataPartida >= seteDiasAtras && dataPartida <= quatorzeDiasFrente;
+          })
+          .sort((a, b) => new Date(a.fixture.date) - new Date(b.fixture.date));
+      } else if (Array.isArray(proximasData)) {
+        todasOrdenadas = proximasData;
+      }
+      
+      setPartidas(todasOrdenadas.slice(0, 20));
+    } catch (err) {
+      console.error('Erro ao carregar partidas:', err);
+    }
+  };
+
+  const loadArtilheiros = async () => {
+    try {
+      const data = await getTopScorers(campeonato.league.id, season);
+      if (Array.isArray(data)) {
+        setArtilheiros(data.slice(0, 20));
+      }
+    } catch (err) {
+      console.error('Erro ao carregar artilheiros:', err);
+    }
+  };
 
   const renderContent = () => {
+    if (loading) {
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <Text style={styles.loadingText}>Carregando dados...</Text>
+        </View>
+      );
+    }
+
+    if (error) {
+      return (
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle-outline" size={50} color={theme.colors.error} />
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={loadData}>
+            <Text style={styles.retryButtonText}>Tentar novamente</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
     switch (activeTab) {
       case 'tabela':
         return (
@@ -175,40 +306,49 @@ export default function DetalheCampeonatoScreen({ route, navigation }) {
               <Text style={styles.tabelaHeaderValor}>D</Text>
               <Text style={styles.tabelaHeaderValor}>SG</Text>
             </View>
-            <FlatList
-              data={TABELA_MOCK}
-              keyExtractor={(item) => item.rank.toString()}
-              renderItem={({ item }) => (
-                <TabelaRow 
-                  item={item} 
-                  onPressTime={(time) => navigation.navigate('DetalheTime', { time })}
-                />
-              )}
-              scrollEnabled={false}
-            />
-            {/* Legenda */}
-            <View style={styles.legenda}>
-              <View style={styles.legendaItem}>
-                <View style={[styles.legendaCor, { backgroundColor: theme.colors.libertadores }]} />
-                <Text style={styles.legendaTexto}>Libertadores</Text>
+            {tabela.length > 0 ? (
+              <FlatList
+                data={tabela}
+                keyExtractor={(item) => item.rank?.toString() || Math.random().toString()}
+                renderItem={({ item }) => (
+                  <TabelaRow 
+                    item={item} 
+                    onPressTime={(time) => navigation.navigate('DetalheTime', { time })}
+                  />
+                )}
+                scrollEnabled={false}
+              />
+            ) : (
+              <View style={styles.emptyContainer}>
+                <Ionicons name="podium-outline" size={50} color={theme.colors.textMuted} />
+                <Text style={styles.emptyText}>Classificação não disponível para este campeonato</Text>
+                <Text style={styles.emptySubtext}>Temporada {season}</Text>
               </View>
-              <View style={styles.legendaItem}>
-                <View style={[styles.legendaCor, { backgroundColor: theme.colors.sulAmericana }]} />
-                <Text style={styles.legendaTexto}>Sul-Americana</Text>
+            )}
+            {tabela.length > 0 && (
+              <View style={styles.legenda}>
+                <View style={styles.legendaItem}>
+                  <View style={[styles.legendaCor, { backgroundColor: theme.colors.libertadores }]} />
+                  <Text style={styles.legendaTexto}>Champions/Libertadores</Text>
+                </View>
+                <View style={styles.legendaItem}>
+                  <View style={[styles.legendaCor, { backgroundColor: theme.colors.sulAmericana }]} />
+                  <Text style={styles.legendaTexto}>Europa League/Sul-Americana</Text>
+                </View>
+                <View style={styles.legendaItem}>
+                  <View style={[styles.legendaCor, { backgroundColor: theme.colors.rebaixamento }]} />
+                  <Text style={styles.legendaTexto}>Rebaixamento</Text>
+                </View>
               </View>
-              <View style={styles.legendaItem}>
-                <View style={[styles.legendaCor, { backgroundColor: theme.colors.rebaixamento }]} />
-                <Text style={styles.legendaTexto}>Rebaixamento</Text>
-              </View>
-            </View>
+            )}
           </View>
         );
       
       case 'jogos':
         return (
           <View style={styles.jogosContainer}>
-            {partidasDoCampeonato.length > 0 ? (
-              partidasDoCampeonato.map((partida) => (
+            {partidas.length > 0 ? (
+              partidas.map((partida) => (
                 <PartidaItem
                   key={partida.fixture.id}
                   partida={partida}
@@ -227,9 +367,21 @@ export default function DetalheCampeonatoScreen({ route, navigation }) {
       case 'artilharia':
         return (
           <View style={styles.artilhariaContainer}>
-            {ARTILHARIA_MOCK.map((item, index) => (
-              <ArtilheiroItem key={item.atleta.atleta_id} item={item} posicao={index + 1} />
-            ))}
+            {artilheiros.length > 0 ? (
+              artilheiros.map((item, index) => (
+                <ArtilheiroItem 
+                  key={item.player?.id || index} 
+                  item={item} 
+                  posicao={index + 1}
+                  onPress={() => navigation.navigate('DetalheAtleta', { atleta: item })}
+                />
+              ))
+            ) : (
+              <View style={styles.emptyContainer}>
+                <Ionicons name="football-outline" size={50} color={theme.colors.textMuted} />
+                <Text style={styles.emptyText}>Nenhum artilheiro encontrado</Text>
+              </View>
+            )}
           </View>
         );
       
@@ -239,7 +391,16 @@ export default function DetalheCampeonatoScreen({ route, navigation }) {
   };
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView 
+      style={styles.container}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor={theme.colors.primary}
+        />
+      }
+    >
       {/* Header do Campeonato */}
       <View style={styles.header}>
         <View style={styles.headerLogo}>
@@ -250,7 +411,9 @@ export default function DetalheCampeonatoScreen({ route, navigation }) {
           )}
         </View>
         <Text style={styles.headerTitle}>{campeonato.league.name}</Text>
-        <Text style={styles.headerSubtitle}>{campeonato.country?.name || 'Internacional'}</Text>
+        <Text style={styles.headerSubtitle}>
+          {campeonato.country?.name || 'Internacional'} • Temporada {season}
+        </Text>
       </View>
 
       {/* Tabs */}
@@ -565,5 +728,48 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.md,
     fontSize: theme.fontSize.md,
     color: theme.colors.textMuted,
+    textAlign: 'center',
+  },
+  emptySubtext: {
+    marginTop: theme.spacing.xs,
+    fontSize: theme.fontSize.sm,
+    color: theme.colors.textMuted,
+  },
+
+  // Loading
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: theme.spacing.xxl,
+  },
+  loadingText: {
+    marginTop: theme.spacing.md,
+    fontSize: theme.fontSize.md,
+    color: theme.colors.textSecondary,
+  },
+
+  // Error
+  errorContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: theme.spacing.xxl,
+  },
+  errorText: {
+    marginTop: theme.spacing.md,
+    fontSize: theme.fontSize.md,
+    color: theme.colors.error,
+    textAlign: 'center',
+  },
+  retryButton: {
+    marginTop: theme.spacing.md,
+    backgroundColor: theme.colors.primary,
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.borderRadius.md,
+  },
+  retryButtonText: {
+    color: theme.colors.white,
+    fontSize: theme.fontSize.md,
+    fontWeight: theme.fontWeight.semibold,
   },
 });

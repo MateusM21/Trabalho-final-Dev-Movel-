@@ -182,6 +182,26 @@ export default function DetalhePartidaScreen({ route, navigation }) {
       {(isLive || isFinished) && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Eventos da Partida</Text>
+          {/* Cabeçalho com times */}
+          <View style={styles.eventosHeader}>
+            <View style={styles.eventosTimeHeader}>
+              {partida.teams.home.logo && (
+                <Image source={{ uri: partida.teams.home.logo }} style={styles.eventosTimeLogo} />
+              )}
+              <Text style={styles.eventosTimeNome} numberOfLines={1}>
+                {partida.teams.home.name}
+              </Text>
+            </View>
+            <View style={styles.eventosTimeHeader}>
+              <Text style={styles.eventosTimeNome} numberOfLines={1}>
+                {partida.teams.away.name}
+              </Text>
+              {partida.teams.away.logo && (
+                <Image source={{ uri: partida.teams.away.logo }} style={styles.eventosTimeLogo} />
+              )}
+            </View>
+          </View>
+          
           {loadingEventos ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="small" color={theme.colors.primary} />
@@ -190,16 +210,11 @@ export default function DetalhePartidaScreen({ route, navigation }) {
           ) : eventos.length > 0 ? (
             <View style={styles.timeline}>
               {eventos.map((evento, index) => (
-                <View 
-                  key={index} 
-                  style={[
-                    styles.eventoItem,
-                    evento.time === 'visitante' && styles.eventoVisitante
-                  ]}
-                >
-                  {evento.time === 'mandante' && (
-                    <>
-                      <View style={styles.eventoInfo}>
+                <View key={index} style={styles.eventoRow}>
+                  {/* Coluna Mandante */}
+                  <View style={styles.eventoColuna}>
+                    {evento.time === 'mandante' && (
+                      <View style={styles.eventoConteudo}>
                         <View style={styles.eventoJogadorContainer}>
                           <Text style={styles.eventoJogador}>{evento.jogador}</Text>
                           {evento.assistencia && (
@@ -208,13 +223,18 @@ export default function DetalhePartidaScreen({ route, navigation }) {
                         </View>
                         {getEventoIcon(evento.tipo)}
                       </View>
-                      <Text style={styles.eventoMinuto}>{evento.minuto}'</Text>
-                    </>
-                  )}
-                  {evento.time === 'visitante' && (
-                    <>
-                      <Text style={styles.eventoMinuto}>{evento.minuto}'</Text>
-                      <View style={styles.eventoInfo}>
+                    )}
+                  </View>
+                  
+                  {/* Coluna Central - Minuto */}
+                  <View style={styles.eventoCentro}>
+                    <Text style={styles.eventoMinuto}>{evento.minuto}'</Text>
+                  </View>
+                  
+                  {/* Coluna Visitante */}
+                  <View style={styles.eventoColuna}>
+                    {evento.time === 'visitante' && (
+                      <View style={[styles.eventoConteudo, styles.eventoConteudoVisitante]}>
                         {getEventoIcon(evento.tipo)}
                         <View style={styles.eventoJogadorContainer}>
                           <Text style={styles.eventoJogador}>{evento.jogador}</Text>
@@ -223,8 +243,8 @@ export default function DetalhePartidaScreen({ route, navigation }) {
                           )}
                         </View>
                       </View>
-                    </>
-                  )}
+                    )}
+                  </View>
                 </View>
               ))}
             </View>
@@ -415,6 +435,57 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surface,
     borderRadius: theme.borderRadius.lg,
     padding: theme.spacing.md,
+  },
+  eventosHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: theme.colors.surface,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.borderRadius.lg,
+    marginBottom: theme.spacing.xs,
+  },
+  eventosTimeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: theme.spacing.xs,
+  },
+  eventosTimeLogo: {
+    width: 24,
+    height: 24,
+    resizeMode: 'contain',
+  },
+  eventosTimeNome: {
+    fontSize: theme.fontSize.sm,
+    fontWeight: theme.fontWeight.semibold,
+    color: theme.colors.textPrimary,
+    flex: 1,
+  },
+  eventoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: theme.spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  eventoColuna: {
+    flex: 1,
+    alignItems: 'flex-end',
+  },
+  eventoCentro: {
+    paddingHorizontal: theme.spacing.sm,
+    alignItems: 'center',
+    minWidth: 50,
+  },
+  eventoConteudo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+  },
+  eventoConteudoVisitante: {
+    flexDirection: 'row-reverse',
   },
   eventoItem: {
     flexDirection: 'row',

@@ -8,16 +8,18 @@ import {
   Image,
   RefreshControl,
   FlatList,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import theme from '../../utils/theme';
 import { 
-  CAMPEONATOS_MOCK, 
-  PARTIDAS_MOCK, 
+  CAMPEONATOS_ESTRUTURADOS,
   TIMES_MOCK,
   isMatchLive,
   isMatchScheduled,
   getMatchStatus,
+  getLiveMatches,
+  getFixturesByDate,
 } from '../../services/api';
 
 // Componente de Partida ao Vivo
@@ -129,20 +131,54 @@ function TimeCard({ time, onPress }) {
 
 export default function HomeScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
-  const [partidas, setPartidas] = useState(PARTIDAS_MOCK);
-  const [campeonatos, setCampeonatos] = useState(CAMPEONATOS_MOCK);
+  const [loading, setLoading] = useState(true);
+  const [partidasAoVivo, setPartidasAoVivo] = useState([]);
+  const [proximasPartidas, setProximasPartidas] = useState([]);
   const [times, setTimes] = useState(TIMES_MOCK);
+
+  // Extrair campeonatos principais da estrutura
+  const campeonatosPrincipais = [
+    ...Object.values(CAMPEONATOS_ESTRUTURADOS.continentais).flatMap(cat => cat.competicoes || []),
+    ...Object.values(CAMPEONATOS_ESTRUTURADOS.nacionais).flatMap(pais => pais.divisoes || [])
+  ].slice(0, 8);
+
+  const loadPartidas = async () => {
+    try {
+      // Buscar partidas ao vivo
+      const liveData = await getLiveMatches();
+      if (liveData && liveData.response) {
+        setPartidasAoVivo(liveData.response.slice(0, 10));
+      }
+
+      // Buscar partidas do dia
+      const today = new Date().toISOString().split('T')[0];
+      const todayData = await getFixturesByDate(today);
+      if (todayData && todayData.response) {
+        const scheduled = todayData.response.filter(p => 
+          isMatchScheduled(p.fixture.status.short)
+        );
+        setProximasPartidas(scheduled.slice(0, 10));
+      }
+    } catch (error) {
+      console.error('Erro ao carregar partidas:', error);
+    }
+  };
+
+  const loadData = async () => {
+    setLoading(true);
+    await loadPartidas();
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    // Aqui você faria as chamadas reais à API
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 1500);
+    await loadPartidas();
+    setRefreshing(false);
   };
-
-  const partidasAoVivo = partidas.filter(p => isMatchLive(p.fixture.status.short));
-  const proximasPartidas = partidas.filter(p => isMatchScheduled(p.fixture.status.short));
 
   return (
     <ScrollView
@@ -171,7 +207,14 @@ export default function HomeScreen({ navigation }) {
       </View>
 
       {/* Partidas ao Vivo */}
-      {partidasAoVivo.length > 0 && (
+      {loading ? (
+        <View style={styles.section}>
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={theme.colors.primary} />
+            <Text style={styles.loadingText}>Carregando partidas...</Text>
+          </View>
+        </View>
+      ) : partidasAoVivo.length > 0 ? (
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <View style={styles.sectionTitleContainer}>
@@ -190,6 +233,13 @@ export default function HomeScreen({ navigation }) {
             />
           ))}
         </View>
+      ) : (
+        <View style={styles.section}>
+          <View style={styles.emptyLiveContainer}>
+            <Ionicons name="football-outline" size={40} color={theme.colors.textSecondary} />
+            <Text style={styles.emptyLiveText}>Nenhuma partida ao vivo no momento</Text>
+          </View>
+        </View>
       )}
 
       {/* Próximas Partidas */}
@@ -200,13 +250,21 @@ export default function HomeScreen({ navigation }) {
             <Text style={styles.verTodos}>Ver todas</Text>
           </TouchableOpacity>
         </View>
-        {proximasPartidas.slice(0, 3).map((partida) => (
-          <PartidaAoVivoCard
-            key={partida.fixture.id}
-            partida={partida}
-            onPress={() => navigation.navigate('DetalhePartida', { partida })}
-          />
-        ))}
+        {proximasPartidas.length > 0 ? (
+          proximasPartidas.slice(0, 5).map((partida) => (
+            <PartidaAoVivoCard
+              key={partida.fixture.id}
+              partida={partida}
+              onPress={() => navigation.navigate('DetalhePartida', { partida })}
+            />
+          ))
+        ) : (
+          !loading && (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>Nenhuma partida agendada para hoje</Text>
+            </View>
+          )
+        )}
       </View>
 
       {/* Campeonatos */}
@@ -222,7 +280,7 @@ export default function HomeScreen({ navigation }) {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.horizontalList}
         >
-          {campeonatos.map((campeonato) => (
+          {campeonatosPrincipais.map((campeonato) => (
             <CampeonatoCard
               key={campeonato.league.id}
               campeonato={campeonato}
@@ -473,5 +531,37 @@ const styles = StyleSheet.create({
     fontSize: theme.fontSize.xs,
     color: theme.colors.textPrimary,
     textAlign: 'center',
+  },
+
+  // Loading e Empty states
+  loadingContainer: {
+    padding: theme.spacing.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    marginTop: theme.spacing.md,
+    fontSize: theme.fontSize.sm,
+    color: theme.colors.textSecondary,
+  },
+  emptyLiveContainer: {
+    padding: theme.spacing.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.lg,
+  },
+  emptyLiveText: {
+    marginTop: theme.spacing.sm,
+    fontSize: theme.fontSize.sm,
+    color: theme.colors.textSecondary,
+  },
+  emptyContainer: {
+    padding: theme.spacing.lg,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: theme.fontSize.sm,
+    color: theme.colors.textSecondary,
   },
 });
