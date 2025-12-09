@@ -19,6 +19,8 @@ async function fetchAPI(endpoint, params = {}) {
     const queryString = new URLSearchParams(params).toString();
     const url = `${API_BASE_URL}${endpoint}${queryString ? '?' + queryString : ''}`;
     
+    console.log('Fetching:', url); // Debug
+    
     const response = await fetch(url, { 
       method: 'GET',
       headers 
@@ -29,10 +31,11 @@ async function fetchAPI(endpoint, params = {}) {
     }
     
     const data = await response.json();
-    return data.response || data;
+    console.log('API Response:', endpoint, 'results:', data.results); // Debug
+    return data; // Retorna o objeto completo com { response, results, errors, etc }
   } catch (error) {
     console.error('Erro ao buscar dados:', error);
-    throw error;
+    return { response: [], results: 0, errors: [error.message] };
   }
 }
 
@@ -232,17 +235,17 @@ export const CAMPEONATOS_ESTRUTURADOS = {
         {
           league: { id: 2, name: 'UEFA Champions League', type: 'Cup', logo: 'https://media.api-sports.io/football/leagues/2.png' },
           country: { name: 'Europe', code: null, flag: null },
-          seasons: [{ year: 2024, current: true }],
+          seasons: [{ year: 2025, current: true }],
         },
         {
           league: { id: 3, name: 'UEFA Europa League', type: 'Cup', logo: 'https://media.api-sports.io/football/leagues/3.png' },
           country: { name: 'Europe', code: null, flag: null },
-          seasons: [{ year: 2024, current: true }],
+          seasons: [{ year: 2025, current: true }],
         },
         {
           league: { id: 848, name: 'UEFA Conference League', type: 'Cup', logo: 'https://media.api-sports.io/football/leagues/848.png' },
           country: { name: 'Europe', code: null, flag: null },
-          seasons: [{ year: 2024, current: true }],
+          seasons: [{ year: 2025, current: true }],
         },
       ],
     },
@@ -306,32 +309,32 @@ export const CAMPEONATOS_ESTRUTURADOS = {
         {
           league: { id: 39, name: 'Premier League', type: 'League', logo: 'https://media.api-sports.io/football/leagues/39.png' },
           country: { name: 'England', code: 'GB', flag: 'https://media.api-sports.io/flags/gb.svg' },
-          seasons: [{ year: 2024, current: true }],
+          seasons: [{ year: 2025, current: true }],
         },
         {
           league: { id: 40, name: 'Championship', type: 'League', logo: 'https://media.api-sports.io/football/leagues/40.png' },
           country: { name: 'England', code: 'GB', flag: 'https://media.api-sports.io/flags/gb.svg' },
-          seasons: [{ year: 2024, current: true }],
+          seasons: [{ year: 2025, current: true }],
         },
         {
           league: { id: 41, name: 'League One', type: 'League', logo: 'https://media.api-sports.io/football/leagues/41.png' },
           country: { name: 'England', code: 'GB', flag: 'https://media.api-sports.io/flags/gb.svg' },
-          seasons: [{ year: 2024, current: true }],
+          seasons: [{ year: 2025, current: true }],
         },
         {
           league: { id: 42, name: 'League Two', type: 'League', logo: 'https://media.api-sports.io/football/leagues/42.png' },
           country: { name: 'England', code: 'GB', flag: 'https://media.api-sports.io/flags/gb.svg' },
-          seasons: [{ year: 2024, current: true }],
+          seasons: [{ year: 2025, current: true }],
         },
         {
           league: { id: 45, name: 'FA Cup', type: 'Cup', logo: 'https://media.api-sports.io/football/leagues/45.png' },
           country: { name: 'England', code: 'GB', flag: 'https://media.api-sports.io/flags/gb.svg' },
-          seasons: [{ year: 2024, current: true }],
+          seasons: [{ year: 2025, current: true }],
         },
         {
           league: { id: 48, name: 'EFL Cup', type: 'Cup', logo: 'https://media.api-sports.io/football/leagues/48.png' },
           country: { name: 'England', code: 'GB', flag: 'https://media.api-sports.io/flags/gb.svg' },
-          seasons: [{ year: 2024, current: true }],
+          seasons: [{ year: 2025, current: true }],
         },
       ],
     },

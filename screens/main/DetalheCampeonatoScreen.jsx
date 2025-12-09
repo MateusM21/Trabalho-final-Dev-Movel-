@@ -174,15 +174,29 @@ export default function DetalheCampeonatoScreen({ route, navigation }) {
   const getCurrentSeason = () => {
     const currentYear = new Date().getFullYear();
     const currentMonth = new Date().getMonth();
-    // Ligas europeias começam em agosto, então se estivermos antes de agosto, é a temporada anterior
-    if (campeonato.country?.name === 'Brazil') {
-      return currentYear; // Brasileirão segue o ano calendário
+    
+    // Verificar se é liga brasileira ou sul-americana
+    const isBrazilian = campeonato.country?.name === 'Brazil' || 
+                        campeonato.country?.code === 'BR';
+    const isSouthAmerican = campeonato.country?.name === 'South America' ||
+                            campeonato.league?.id === 13 || // Libertadores
+                            campeonato.league?.id === 11;   // Sudamericana
+    
+    if (isBrazilian || isSouthAmerican) {
+      // Campeonatos sul-americanos seguem o ano calendário
+      // Se estivermos em janeiro-março, ainda pode ser a temporada anterior
+      return currentMonth < 3 ? currentYear - 1 : currentYear;
     }
-    // Ligas europeias
+    
+    // Ligas europeias: temporada 2024/2025 usa season=2024
+    // A temporada começa em agosto e termina em maio do ano seguinte
     return currentMonth >= 7 ? currentYear : currentYear - 1;
   };
 
+  // Usar a temporada definida no campeonato ou calcular
   const season = campeonato.seasons?.find(s => s.current)?.year || getCurrentSeason();
+  
+  console.log('Campeonato:', campeonato.league.name, 'Season:', season);
 
   // Carregar dados ao montar o componente
   useEffect(() => {
@@ -215,9 +229,10 @@ export default function DetalheCampeonatoScreen({ route, navigation }) {
   const loadTabela = async () => {
     try {
       const data = await getStandings(campeonato.league.id, season);
-      if (data && data.length > 0 && data[0].league?.standings) {
+      console.log('Standings data:', data?.results, 'season:', season);
+      if (data?.response && data.response.length > 0 && data.response[0].league?.standings) {
         // A API retorna standings como array de grupos
-        const standings = data[0].league.standings[0] || [];
+        const standings = data.response[0].league.standings[0] || [];
         setTabela(standings);
       }
     } catch (err) {
@@ -229,27 +244,29 @@ export default function DetalheCampeonatoScreen({ route, navigation }) {
     try {
       // Buscar próximas partidas
       const proximasData = await getNextFixtures(campeonato.league.id, 15);
+      console.log('Proximas partidas:', proximasData?.results);
       
       // Buscar partidas recentes (últimas 10)
       const todasPartidas = await getFixtures(campeonato.league.id, season);
+      console.log('Todas partidas:', todasPartidas?.results);
       
       // Combinar partidas - ordenar por data
       let todasOrdenadas = [];
       
-      if (Array.isArray(todasPartidas)) {
+      if (todasPartidas?.response && Array.isArray(todasPartidas.response)) {
         // Filtrar partidas recentes (últimos 7 dias) e futuras (próximos 14 dias)
         const agora = new Date();
         const seteDiasAtras = new Date(agora.getTime() - 7 * 24 * 60 * 60 * 1000);
         const quatorzeDiasFrente = new Date(agora.getTime() + 14 * 24 * 60 * 60 * 1000);
         
-        todasOrdenadas = todasPartidas
+        todasOrdenadas = todasPartidas.response
           .filter(p => {
             const dataPartida = new Date(p.fixture.date);
             return dataPartida >= seteDiasAtras && dataPartida <= quatorzeDiasFrente;
           })
           .sort((a, b) => new Date(a.fixture.date) - new Date(b.fixture.date));
-      } else if (Array.isArray(proximasData)) {
-        todasOrdenadas = proximasData;
+      } else if (proximasData?.response && Array.isArray(proximasData.response)) {
+        todasOrdenadas = proximasData.response;
       }
       
       setPartidas(todasOrdenadas.slice(0, 20));
@@ -261,8 +278,9 @@ export default function DetalheCampeonatoScreen({ route, navigation }) {
   const loadArtilheiros = async () => {
     try {
       const data = await getTopScorers(campeonato.league.id, season);
-      if (Array.isArray(data)) {
-        setArtilheiros(data.slice(0, 20));
+      console.log('Artilheiros:', data?.results);
+      if (data?.response && Array.isArray(data.response)) {
+        setArtilheiros(data.response.slice(0, 20));
       }
     } catch (err) {
       console.error('Erro ao carregar artilheiros:', err);

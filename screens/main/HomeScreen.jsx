@@ -146,16 +146,19 @@ export default function HomeScreen({ navigation }) {
     try {
       // Buscar partidas ao vivo
       const liveData = await getLiveMatches();
-      if (liveData && liveData.response) {
+      console.log('Live data:', liveData?.results);
+      if (liveData?.response && Array.isArray(liveData.response)) {
         setPartidasAoVivo(liveData.response.slice(0, 10));
       }
 
       // Buscar partidas do dia
       const today = new Date().toISOString().split('T')[0];
+      console.log('Buscando partidas para:', today);
       const todayData = await getFixturesByDate(today);
-      if (todayData && todayData.response) {
+      console.log('Today data:', todayData?.results);
+      if (todayData?.response && Array.isArray(todayData.response)) {
         const scheduled = todayData.response.filter(p => 
-          isMatchScheduled(p.fixture.status.short)
+          p?.fixture?.status?.short && isMatchScheduled(p.fixture.status.short)
         );
         setProximasPartidas(scheduled.slice(0, 10));
       }
