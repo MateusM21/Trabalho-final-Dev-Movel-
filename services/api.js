@@ -619,7 +619,7 @@ export const CAMPEONATOS_ESTRUTURADOS = {
             code: 'BSA', 
             name: 'Brasileirão Série A', 
             type: 'League', 
-            logo: 'https://upload.wikimedia.org/wikipedia/pt/4/42/Campeonato_Brasileiro_S%C3%A9rie_A_logo.png' 
+            logo: 'https://a.espncdn.com/combiner/i?img=/i/leaguelogos/soccer/500/85.png' 
           },
           country: { name: 'Brazil', code: 'BR', flag: 'https://crests.football-data.org/764.svg' },
         },

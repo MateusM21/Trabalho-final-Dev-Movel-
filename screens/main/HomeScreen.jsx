@@ -30,7 +30,7 @@ import {
 // Lista de ligas disponíveis para filtro
 const LIGAS_DISPONIVEIS = [
   { code: 'todos', name: 'Todos os Jogos', logo: null },
-  { code: 'BSA', name: 'Brasileirão', logo: 'https://upload.wikimedia.org/wikipedia/pt/4/42/Campeonato_Brasileiro_S%C3%A9rie_A_logo.png' },
+  { code: 'BSA', name: 'Brasileirão', logo: 'https://a.espncdn.com/combiner/i?img=/i/leaguelogos/soccer/500/85.png' },
   { code: 'CL', name: 'Champions League', logo: 'https://crests.football-data.org/CL.png' },
   { code: 'PL', name: 'Premier League', logo: 'https://crests.football-data.org/PL.png' },
   { code: 'PD', name: 'La Liga', logo: 'https://crests.football-data.org/PD.png' },
@@ -182,42 +182,55 @@ export default function HomeScreen({ navigation }) {
     return partidas.filter(p => p.league?.code === filtroAtivo);
   };
 
+  // Ordenar partidas priorizando times favoritos
+  const ordenarPorFavoritos = (partidas) => {
+    if (!favoritos?.times?.length) return partidas;
+    
+    const timeFavoritoIds = favoritos.times.map(t => t.team?.id);
+    
+    return [...partidas].sort((a, b) => {
+      const aTemFavorito = timeFavoritoIds.includes(a.teams?.home?.id) || timeFavoritoIds.includes(a.teams?.away?.id);
+      const bTemFavorito = timeFavoritoIds.includes(b.teams?.home?.id) || timeFavoritoIds.includes(b.teams?.away?.id);
+      
+      if (aTemFavorito && !bTemFavorito) return -1;
+      if (!aTemFavorito && bTemFavorito) return 1;
+      return 0;
+    });
+  };
+
   const loadPartidas = async () => {
     try {
       // Buscar partidas ao vivo
       const liveData = await getLiveMatches();
       console.log('Live data:', liveData?.results);
       
-      let allMatches = [];
+      // Separar corretamente: ao vivo vs próximas
+      let aoVivo = [];
+      let proximas = [];
       
       if (liveData?.response && liveData.response.length > 0) {
-        allMatches = liveData.response;
-      } else {
-        // Se não há jogos ao vivo, buscar próximas partidas
-        console.log('Nenhum jogo ao vivo, buscando próximas partidas...');
-        const upcomingData = await getUpcomingMatches(20);
-        console.log('Upcoming data:', upcomingData?.results);
-        if (upcomingData?.response && upcomingData.response.length > 0) {
-          allMatches = upcomingData.response;
-        }
+        // Filtrar apenas partidas realmente ao vivo
+        aoVivo = liveData.response.filter(p => isMatchLive(p.fixture?.status?.short));
       }
       
-      // Aplicar filtro
-      const partidasFiltradas = filtrarPartidas(allMatches);
-      setPartidasAoVivo(partidasFiltradas.slice(0, 10));
-
-      // Buscar partidas do dia para a seção de próximas partidas
-      const today = new Date().toISOString().split('T')[0];
-      console.log('Buscando partidas para:', today);
-      const todayData = await getFixturesByDate(today);
-      console.log('Today data:', todayData?.results);
-      if (todayData?.response && Array.isArray(todayData.response)) {
-        const scheduled = todayData.response.filter(p => 
-          p?.fixture?.status?.short && isMatchScheduled(p.fixture.status.short)
+      // Buscar próximas partidas (independente de haver jogos ao vivo)
+      console.log('Buscando próximas partidas...');
+      const upcomingData = await getUpcomingMatches(20);
+      console.log('Upcoming data:', upcomingData?.results);
+      
+      if (upcomingData?.response && upcomingData.response.length > 0) {
+        // Filtrar apenas partidas agendadas (não ao vivo)
+        proximas = upcomingData.response.filter(p => 
+          isMatchScheduled(p.fixture?.status?.short)
         );
-        const scheduledFiltradas = filtrarPartidas(scheduled);
-        setProximasPartidas(scheduledFiltradas.slice(0, 10));
       }
+      
+      // Aplicar filtro e ordenar por favoritos
+      const aoVivoFiltradas = ordenarPorFavoritos(filtrarPartidas(aoVivo));
+      const proximasFiltradas = ordenarPorFavoritos(filtrarPartidas(proximas));
+      
+      setPartidasAoVivo(aoVivoFiltradas.slice(0, 10));
+      setProximasPartidas(proximasFiltradas.slice(0, 10));
     } catch (error) {
       console.error('Erro ao carregar partidas:', error);
     }
@@ -407,7 +420,14 @@ export default function HomeScreen({ navigation }) {
       {/* Próximas Partidas */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>📅 Próximas Partidas</Text>
+          <View style={styles.sectionTitleContainer}>
+            <Text style={styles.sectionTitle}>📅 Próximas Partidas</Text>
+            {favoritos?.times?.length > 0 && (
+              <View style={styles.favoritoBadge}>
+                <Ionicons name="heart" size={12} color={theme.colors.error} />
+              </View>
+            )}
+          </View>
           <TouchableOpacity onPress={() => navigation.navigate('Partidas')}>
             <Text style={styles.verTodos}>Ver todas</Text>
           </TouchableOpacity>
@@ -423,7 +443,7 @@ export default function HomeScreen({ navigation }) {
         ) : (
           !loading && (
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>Nenhuma partida agendada para hoje</Text>
+              <Text style={styles.emptyText}>Nenhuma partida agendada para os próximos dias</Text>
             </View>
           )
         )}
@@ -803,5 +823,9 @@ const styles = StyleSheet.create({
   filtroItemTextAtivo: {
     color: theme.colors.primary,
     fontWeight: theme.fontWeight.semibold,
+  },
+  favoritoBadge: {
+    marginLeft: theme.spacing.xs,
+    padding: 2,
   },
 });
