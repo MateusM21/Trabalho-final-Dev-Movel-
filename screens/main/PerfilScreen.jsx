@@ -89,7 +89,7 @@ function FavoritosSection({ titulo, icone, items, tipo, onPressItem, onRemoveIte
 }
 
 export default function PerfilScreen({ navigation }) {
-  const { user, signOut, toggleFavorito } = useAuth();
+  const { user, signOut, toggleFavorito, favoritos } = useAuth();
 
   const handleLogout = () => {
     Alert.alert(
@@ -138,16 +138,112 @@ export default function PerfilScreen({ navigation }) {
     );
   };
 
+  // Usar favoritos do contexto (funciona com ou sem login)
+  const totalFavoritos = 
+    (favoritos?.times?.length || 0) + 
+    (favoritos?.campeonatos?.length || 0) + 
+    (favoritos?.atletas?.length || 0);
+
+  // Se não tem login mas tem favoritos, mostrar tela de favoritos com opção de login
   if (!user) {
+    if (totalFavoritos > 0) {
+      // Mostrar favoritos mesmo sem login
+      return (
+        <ScrollView style={styles.container}>
+          {/* Header sem login */}
+          <View style={styles.header}>
+            <View style={styles.avatarContainer}>
+              <Ionicons name="person-outline" size={40} color={theme.colors.textMuted} />
+            </View>
+            <Text style={styles.userName}>Visitante</Text>
+            <Text style={styles.userEmail}>Seus favoritos salvos localmente</Text>
+            
+            <View style={styles.statsRow}>
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>{totalFavoritos}</Text>
+                <Text style={styles.statLabel}>Favoritos</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>{favoritos?.times?.length || 0}</Text>
+                <Text style={styles.statLabel}>Times</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Text style={styles.statValue}>{favoritos?.atletas?.length || 0}</Text>
+                <Text style={styles.statLabel}>Atletas</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Botões de login */}
+          <View style={styles.loginPromptContainer}>
+            <Text style={styles.loginPromptText}>Faça login para sincronizar seus favoritos</Text>
+            <View style={styles.loginPromptButtons}>
+              <TouchableOpacity 
+                style={styles.loginPromptBtn}
+                onPress={() => navigation.navigate('Login')}
+              >
+                <Text style={styles.loginPromptBtnText}>Entrar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.loginPromptBtn, styles.loginPromptBtnSecondary]}
+                onPress={() => navigation.navigate('Cadastro')}
+              >
+                <Text style={[styles.loginPromptBtnText, styles.loginPromptBtnTextSecondary]}>Criar Conta</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Favoritos */}
+          {favoritos?.times?.length > 0 && (
+            <FavoritosSection
+              titulo="Times Favoritos"
+              icone="shield"
+              items={favoritos.times}
+              tipo="times"
+              onPressItem={(item) => handlePressItem(item, 'times')}
+              onRemoveItem={(item) => handleRemoveItem(item, 'times')}
+            />
+          )}
+
+          {favoritos?.campeonatos?.length > 0 && (
+            <FavoritosSection
+              titulo="Campeonatos Favoritos"
+              icone="trophy"
+              items={favoritos.campeonatos}
+              tipo="campeonatos"
+              onPressItem={(item) => handlePressItem(item, 'campeonatos')}
+              onRemoveItem={(item) => handleRemoveItem(item, 'campeonatos')}
+            />
+          )}
+
+          {favoritos?.atletas?.length > 0 && (
+            <FavoritosSection
+              titulo="Atletas Favoritos"
+              icone="person"
+              items={favoritos.atletas}
+              tipo="atletas"
+              onPressItem={(item) => handlePressItem(item, 'atletas')}
+              onRemoveItem={(item) => handleRemoveItem(item, 'atletas')}
+            />
+          )}
+
+          <View style={{ height: 30 }} />
+        </ScrollView>
+      );
+    }
+
+    // Se não tem login e não tem favoritos
     return (
       <View style={styles.containerCentered}>
         <View style={styles.notLoggedContainer}>
           <View style={styles.iconCircle}>
             <Ionicons name="person-outline" size={60} color={theme.colors.textMuted} />
           </View>
-          <Text style={styles.notLoggedTitle}>Faça login para continuar</Text>
+          <Text style={styles.notLoggedTitle}>Bem-vindo ao Fanfoot!</Text>
           <Text style={styles.notLoggedText}>
-            Crie uma conta para salvar seus times, campeonatos e atletas favoritos
+            Adicione times e atletas aos favoritos ou crie uma conta para sincronizar
           </Text>
           <TouchableOpacity 
             style={styles.loginButton}
@@ -165,11 +261,6 @@ export default function PerfilScreen({ navigation }) {
       </View>
     );
   }
-
-  const totalFavoritos = 
-    (user.favoritos?.times?.length || 0) + 
-    (user.favoritos?.campeonatos?.length || 0) + 
-    (user.favoritos?.atletas?.length || 0);
 
   return (
     <ScrollView style={styles.container}>
@@ -190,12 +281,12 @@ export default function PerfilScreen({ navigation }) {
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>{user.favoritos?.times?.length || 0}</Text>
+            <Text style={styles.statValue}>{favoritos?.times?.length || 0}</Text>
             <Text style={styles.statLabel}>Times</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>{user.favoritos?.atletas?.length || 0}</Text>
+            <Text style={styles.statValue}>{favoritos?.atletas?.length || 0}</Text>
             <Text style={styles.statLabel}>Atletas</Text>
           </View>
         </View>
@@ -218,7 +309,7 @@ export default function PerfilScreen({ navigation }) {
             <FavoritosSection
               titulo="Times"
               icone="shield-outline"
-              items={user.favoritos?.times}
+              items={favoritos?.times}
               tipo="times"
               onPressItem={handlePressItem}
               onRemoveItem={handleRemoveItem}
@@ -226,7 +317,7 @@ export default function PerfilScreen({ navigation }) {
             <FavoritosSection
               titulo="Campeonatos"
               icone="trophy-outline"
-              items={user.favoritos?.campeonatos}
+              items={favoritos?.campeonatos}
               tipo="campeonatos"
               onPressItem={handlePressItem}
               onRemoveItem={handleRemoveItem}
@@ -234,7 +325,7 @@ export default function PerfilScreen({ navigation }) {
             <FavoritosSection
               titulo="Atletas"
               icone="person-outline"
-              items={user.favoritos?.atletas}
+              items={favoritos?.atletas}
               tipo="atletas"
               onPressItem={handlePressItem}
               onRemoveItem={handleRemoveItem}
@@ -503,5 +594,45 @@ const styles = StyleSheet.create({
   },
   logoutText: {
     color: theme.colors.error,
+  },
+  // Estilos para o prompt de login (quando tem favoritos mas não tem login)
+  loginPromptContainer: {
+    marginHorizontal: theme.spacing.lg,
+    marginBottom: theme.spacing.lg,
+    padding: theme.spacing.md,
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.md,
+    borderLeftWidth: 3,
+    borderLeftColor: theme.colors.primary,
+  },
+  loginPromptText: {
+    fontSize: theme.fontSize.sm,
+    color: theme.colors.textSecondary,
+    marginBottom: theme.spacing.sm,
+  },
+  loginPromptButtons: {
+    flexDirection: 'row',
+    gap: theme.spacing.sm,
+  },
+  loginPromptBtn: {
+    flex: 1,
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    backgroundColor: theme.colors.primary,
+    borderRadius: theme.borderRadius.sm,
+    alignItems: 'center',
+  },
+  loginPromptBtnSecondary: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
+  },
+  loginPromptBtnText: {
+    fontSize: theme.fontSize.sm,
+    fontWeight: theme.fontWeight.semibold,
+    color: theme.colors.background,
+  },
+  loginPromptBtnTextSecondary: {
+    color: theme.colors.primary,
   },
 });

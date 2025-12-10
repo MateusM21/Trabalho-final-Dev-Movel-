@@ -21,9 +21,8 @@ export default function DetalheAtletaScreen({ route, navigation }) {
   const favorito = isFavorito('atletas', player.id);
 
   const handleFavorito = () => {
-    if (user) {
-      toggleFavorito('atletas', atleta);
-    }
+    // Agora funciona sem login - salva localmente via AsyncStorage
+    toggleFavorito('atletas', atleta);
   };
 
   return (

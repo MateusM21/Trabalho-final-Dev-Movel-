@@ -15,13 +15,44 @@ const headers = {
 // Cache de fotos de jogadores para evitar requisições repetidas
 const playerPhotoCache = new Map();
 
-// Buscar foto do jogador no TheSportsDB
-async function fetchPlayerPhoto(playerName) {
+// Normalizar string para comparação (remover acentos, lowercase)
+function normalizeString(str) {
+  if (!str) return '';
+  return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+}
+
+// Verificar se dois nomes são similares
+function namesMatch(name1, name2) {
+  const n1 = normalizeString(name1);
+  const n2 = normalizeString(name2);
+  
+  if (n1 === n2) return true;
+  
+  // Verificar se um nome contém o outro (sobrenome)
+  const parts1 = n1.split(' ');
+  const parts2 = n2.split(' ');
+  
+  // Verificar se o último nome (sobrenome) coincide
+  const lastName1 = parts1[parts1.length - 1];
+  const lastName2 = parts2[parts2.length - 1];
+  
+  if (lastName1 === lastName2 && lastName1.length > 3) return true;
+  
+  // Verificar se o primeiro nome coincide
+  if (parts1[0] === parts2[0] && parts1[0].length > 3) return true;
+  
+  return false;
+}
+
+// Buscar foto do jogador no TheSportsDB com validação
+async function fetchPlayerPhoto(playerName, playerData = {}) {
   if (!playerName) return null;
   
+  const cacheKey = `${playerName}_${playerData.teamName || ''}_${playerData.nationality || ''}`;
+  
   // Verificar cache primeiro
-  if (playerPhotoCache.has(playerName)) {
-    return playerPhotoCache.get(playerName);
+  if (playerPhotoCache.has(cacheKey)) {
+    return playerPhotoCache.get(cacheKey);
   }
   
   try {
@@ -29,21 +60,69 @@ async function fetchPlayerPhoto(playerName) {
     const data = await response.json();
     
     if (data.player && data.player.length > 0) {
-      // Buscar jogador de futebol mais relevante
-      const soccerPlayer = data.player.find(p => p.strSport === 'Soccer' && (p.strThumb || p.strCutout));
-      const photo = soccerPlayer?.strCutout || soccerPlayer?.strThumb || null;
+      // Filtrar apenas jogadores de futebol
+      const soccerPlayers = data.player.filter(p => p.strSport === 'Soccer' && (p.strThumb || p.strCutout));
       
-      // Salvar no cache
-      playerPhotoCache.set(playerName, photo);
-      return photo;
+      if (soccerPlayers.length > 0) {
+        let bestMatch = null;
+        let bestScore = 0;
+        
+        for (const player of soccerPlayers) {
+          let score = 0;
+          
+          // Verificar se o nome confere
+          if (namesMatch(playerName, player.strPlayer)) {
+            score += 3;
+          }
+          
+          // Verificar nacionalidade
+          if (playerData.nationality && player.strNationality) {
+            const nat1 = normalizeString(playerData.nationality);
+            const nat2 = normalizeString(player.strNationality);
+            if (nat1 === nat2 || nat1.includes(nat2) || nat2.includes(nat1)) {
+              score += 5; // Nacionalidade é um forte indicador
+            }
+          }
+          
+          // Verificar time
+          if (playerData.teamName && player.strTeam) {
+            const team1 = normalizeString(playerData.teamName);
+            const team2 = normalizeString(player.strTeam);
+            if (team1.includes(team2) || team2.includes(team1)) {
+              score += 4;
+            }
+          }
+          
+          // Verificar posição
+          if (playerData.position && player.strPosition) {
+            const pos1 = normalizeString(playerData.position);
+            const pos2 = normalizeString(player.strPosition);
+            if (pos1.includes(pos2) || pos2.includes(pos1)) {
+              score += 2;
+            }
+          }
+          
+          if (score > bestScore) {
+            bestScore = score;
+            bestMatch = player;
+          }
+        }
+        
+        // Só usar a foto se tiver um score mínimo de confiança
+        if (bestMatch && bestScore >= 3) {
+          const photo = bestMatch.strCutout || bestMatch.strThumb;
+          playerPhotoCache.set(cacheKey, photo);
+          return photo;
+        }
+      }
     }
   } catch (error) {
     console.log('Erro ao buscar foto do jogador:', playerName);
   }
   
-  // Se não encontrar, usar avatar gerado
+  // Se não encontrar com confiança, usar avatar gerado
   const fallbackUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(playerName)}&background=1a1a2e&color=00ff88&size=128&bold=true`;
-  playerPhotoCache.set(playerName, fallbackUrl);
+  playerPhotoCache.set(cacheKey, fallbackUrl);
   return fallbackUrl;
 }
 
@@ -239,10 +318,16 @@ export async function getNextFixtures(competitionCode, limit = 10) {
 export async function getTopScorers(competitionCode, limit = 20) {
   const data = await fetchAPI(`/competitions/${competitionCode}/scorers`, { limit });
   if (data && data.scorers) {
-    // Buscar fotos dos jogadores em paralelo (limitado a 10 para não sobrecarregar)
+    // Buscar fotos dos jogadores em paralelo com validação
     const scorersWithPhotos = await Promise.all(
       data.scorers.slice(0, limit).map(async (scorer) => {
-        const photo = await fetchPlayerPhoto(scorer.player?.name);
+        // Passar dados para validação da foto
+        const playerData = {
+          teamName: scorer.team?.name,
+          nationality: scorer.player?.nationality,
+          position: scorer.player?.position,
+        };
+        const photo = await fetchPlayerPhoto(scorer.player?.name, playerData);
         return {
           player: {
             id: scorer.player?.id,
@@ -381,10 +466,18 @@ export async function getTeamLastFixtures(teamId, limit = 10) {
 export async function getSquad(teamId) {
   const data = await fetchAPI(`/teams/${teamId}`);
   if (data && data.squad) {
-    // Buscar fotos dos jogadores em paralelo (máximo 25 para não sobrecarregar)
+    const teamName = data.name; // Nome do time para validação
+    
+    // Buscar fotos dos jogadores em paralelo com validação
     const playersWithPhotos = await Promise.all(
       data.squad.slice(0, 30).map(async (player) => {
-        const photo = await fetchPlayerPhoto(player.name);
+        // Passar dados para validação da foto
+        const playerData = {
+          teamName: teamName,
+          nationality: player.nationality,
+          position: player.position,
+        };
+        const photo = await fetchPlayerPhoto(player.name, playerData);
         return {
           id: player.id,
           name: player.name,
@@ -526,7 +619,7 @@ export const CAMPEONATOS_ESTRUTURADOS = {
             code: 'BSA', 
             name: 'Brasileirão Série A', 
             type: 'League', 
-            logo: 'https://logodetimes.com/times/campeonato-brasileiro/logo-campeonato-brasileiro-256.png' 
+            logo: 'https://upload.wikimedia.org/wikipedia/pt/4/42/Campeonato_Brasileiro_S%C3%A9rie_A_logo.png' 
           },
           country: { name: 'Brazil', code: 'BR', flag: 'https://crests.football-data.org/764.svg' },
         },

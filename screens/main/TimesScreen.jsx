@@ -127,11 +127,7 @@ export default function TimesScreen({ navigation }) {
   }, [timesFiltrados]);
 
   const handleToggleFavorito = async (time) => {
-    if (!user) {
-      // Mostrar alerta ou redirecionar para login
-      navigation.navigate('Auth');
-      return;
-    }
+    // Agora funciona sem login - salva localmente via AsyncStorage
     await toggleFavorito('times', time);
   };
 

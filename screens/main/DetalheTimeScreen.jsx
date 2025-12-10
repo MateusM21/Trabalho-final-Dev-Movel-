@@ -180,11 +180,8 @@ export default function DetalheTimeScreen({ route, navigation }) {
   };
 
   const handleFavorito = () => {
-    if (user) {
-      toggleFavorito('times', time);
-    } else {
-      // Poderia mostrar um alert pedindo login
-    }
+    // Agora funciona sem login - salva localmente via AsyncStorage
+    toggleFavorito('times', time);
   };
 
   const tabs = [

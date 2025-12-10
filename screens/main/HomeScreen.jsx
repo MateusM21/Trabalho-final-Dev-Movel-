@@ -9,9 +9,11 @@ import {
   RefreshControl,
   FlatList,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import theme from '../../utils/theme';
+import { useAuth } from '../../context/AuthContext';
 import { 
   CAMPEONATOS_ESTRUTURADOS,
   TIMES_MOCK,
@@ -22,7 +24,20 @@ import {
   getFixturesByDate,
   getUpcomingMatches,
   formatTimeBrasilia,
+  getNextFixtures,
 } from '../../services/api';
+
+// Lista de ligas disponíveis para filtro
+const LIGAS_DISPONIVEIS = [
+  { code: 'todos', name: 'Todos os Jogos', logo: null },
+  { code: 'BSA', name: 'Brasileirão', logo: 'https://upload.wikimedia.org/wikipedia/pt/4/42/Campeonato_Brasileiro_S%C3%A9rie_A_logo.png' },
+  { code: 'CL', name: 'Champions League', logo: 'https://crests.football-data.org/CL.png' },
+  { code: 'PL', name: 'Premier League', logo: 'https://crests.football-data.org/PL.png' },
+  { code: 'PD', name: 'La Liga', logo: 'https://crests.football-data.org/PD.png' },
+  { code: 'SA', name: 'Serie A', logo: 'https://crests.football-data.org/SA.png' },
+  { code: 'BL1', name: 'Bundesliga', logo: 'https://crests.football-data.org/BL1.png' },
+  { code: 'FL1', name: 'Ligue 1', logo: 'https://crests.football-data.org/FL1.png' },
+];
 
 // Componente de Partida ao Vivo
 function PartidaAoVivoCard({ partida, onPress }) {
@@ -132,11 +147,14 @@ function TimeCard({ time, onPress }) {
 }
 
 export default function HomeScreen({ navigation }) {
+  const { preferencias, setLigaFavorita, favoritos } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [partidasAoVivo, setPartidasAoVivo] = useState([]);
   const [proximasPartidas, setProximasPartidas] = useState([]);
   const [times, setTimes] = useState(TIMES_MOCK);
+  const [filtroAtivo, setFiltroAtivo] = useState('todos');
+  const [showFiltroModal, setShowFiltroModal] = useState(false);
 
   // Extrair campeonatos principais da estrutura
   const campeonatosPrincipais = [
@@ -144,24 +162,49 @@ export default function HomeScreen({ navigation }) {
     ...Object.values(CAMPEONATOS_ESTRUTURADOS.nacionais).flatMap(pais => pais.divisoes || [])
   ].slice(0, 8);
 
+  // Carregar filtro salvo
+  useEffect(() => {
+    if (preferencias?.ligaFavorita) {
+      setFiltroAtivo(preferencias.ligaFavorita);
+    }
+  }, [preferencias]);
+
+  // Filtrar partidas com base no filtro ativo
+  const filtrarPartidas = (partidas) => {
+    if (filtroAtivo === 'todos') return partidas;
+    if (filtroAtivo === 'time_favorito' && favoritos?.times?.length > 0) {
+      const timeFavoritoIds = favoritos.times.map(t => t.team?.id);
+      return partidas.filter(p => 
+        timeFavoritoIds.includes(p.teams?.home?.id) || 
+        timeFavoritoIds.includes(p.teams?.away?.id)
+      );
+    }
+    return partidas.filter(p => p.league?.code === filtroAtivo);
+  };
+
   const loadPartidas = async () => {
     try {
       // Buscar partidas ao vivo
       const liveData = await getLiveMatches();
       console.log('Live data:', liveData?.results);
       
+      let allMatches = [];
+      
       if (liveData?.response && liveData.response.length > 0) {
-        // Se há jogos ao vivo, mostrar todos
-        setPartidasAoVivo(liveData.response);
+        allMatches = liveData.response;
       } else {
         // Se não há jogos ao vivo, buscar próximas partidas
         console.log('Nenhum jogo ao vivo, buscando próximas partidas...');
-        const upcomingData = await getUpcomingMatches(10);
+        const upcomingData = await getUpcomingMatches(20);
         console.log('Upcoming data:', upcomingData?.results);
         if (upcomingData?.response && upcomingData.response.length > 0) {
-          setPartidasAoVivo(upcomingData.response);
+          allMatches = upcomingData.response;
         }
       }
+      
+      // Aplicar filtro
+      const partidasFiltradas = filtrarPartidas(allMatches);
+      setPartidasAoVivo(partidasFiltradas.slice(0, 10));
 
       // Buscar partidas do dia para a seção de próximas partidas
       const today = new Date().toISOString().split('T')[0];
@@ -172,7 +215,8 @@ export default function HomeScreen({ navigation }) {
         const scheduled = todayData.response.filter(p => 
           p?.fixture?.status?.short && isMatchScheduled(p.fixture.status.short)
         );
-        setProximasPartidas(scheduled.slice(0, 10));
+        const scheduledFiltradas = filtrarPartidas(scheduled);
+        setProximasPartidas(scheduledFiltradas.slice(0, 10));
       }
     } catch (error) {
       console.error('Erro ao carregar partidas:', error);
@@ -187,13 +231,101 @@ export default function HomeScreen({ navigation }) {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [filtroAtivo]); // Recarregar quando mudar o filtro
 
   const onRefresh = async () => {
     setRefreshing(true);
     await loadPartidas();
     setRefreshing(false);
   };
+
+  // Mudar filtro e salvar preferência
+  const handleFiltroChange = async (codigo) => {
+    setFiltroAtivo(codigo);
+    await setLigaFavorita(codigo);
+    setShowFiltroModal(false);
+  };
+
+  // Obter nome do filtro ativo
+  const getFiltroNome = () => {
+    const liga = LIGAS_DISPONIVEIS.find(l => l.code === filtroAtivo);
+    return liga?.name || 'Todos os Jogos';
+  };
+
+  // Modal de Filtro
+  const FiltroModal = () => (
+    <Modal
+      visible={showFiltroModal}
+      transparent
+      animationType="slide"
+      onRequestClose={() => setShowFiltroModal(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Filtrar Jogos</Text>
+            <TouchableOpacity onPress={() => setShowFiltroModal(false)}>
+              <Ionicons name="close" size={24} color={theme.colors.textPrimary} />
+            </TouchableOpacity>
+          </View>
+          
+          <ScrollView style={styles.modalList}>
+            {LIGAS_DISPONIVEIS.map((liga) => (
+              <TouchableOpacity
+                key={liga.code}
+                style={[
+                  styles.filtroItem,
+                  filtroAtivo === liga.code && styles.filtroItemAtivo
+                ]}
+                onPress={() => handleFiltroChange(liga.code)}
+              >
+                <View style={styles.filtroItemContent}>
+                  {liga.logo ? (
+                    <Image source={{ uri: liga.logo }} style={styles.filtroLogo} />
+                  ) : (
+                    <Ionicons name="football" size={24} color={theme.colors.textSecondary} />
+                  )}
+                  <Text style={[
+                    styles.filtroItemText,
+                    filtroAtivo === liga.code && styles.filtroItemTextAtivo
+                  ]}>
+                    {liga.name}
+                  </Text>
+                </View>
+                {filtroAtivo === liga.code && (
+                  <Ionicons name="checkmark-circle" size={24} color={theme.colors.primary} />
+                )}
+              </TouchableOpacity>
+            ))}
+            
+            {/* Opção de Time Favorito */}
+            {favoritos?.times?.length > 0 && (
+              <TouchableOpacity
+                style={[
+                  styles.filtroItem,
+                  filtroAtivo === 'time_favorito' && styles.filtroItemAtivo
+                ]}
+                onPress={() => handleFiltroChange('time_favorito')}
+              >
+                <View style={styles.filtroItemContent}>
+                  <Ionicons name="heart" size={24} color={theme.colors.error} />
+                  <Text style={[
+                    styles.filtroItemText,
+                    filtroAtivo === 'time_favorito' && styles.filtroItemTextAtivo
+                  ]}>
+                    Meus Times Favoritos
+                  </Text>
+                </View>
+                {filtroAtivo === 'time_favorito' && (
+                  <Ionicons name="checkmark-circle" size={24} color={theme.colors.primary} />
+                )}
+              </TouchableOpacity>
+            )}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
 
   return (
     <ScrollView
@@ -207,6 +339,9 @@ export default function HomeScreen({ navigation }) {
         />
       }
     >
+      {/* Modal de Filtro */}
+      <FiltroModal />
+
       {/* Header de Boas-vindas */}
       <View style={styles.header}>
         <View>
@@ -218,6 +353,18 @@ export default function HomeScreen({ navigation }) {
           onPress={() => navigation.navigate('Busca')}
         >
           <Ionicons name="search" size={22} color={theme.colors.textPrimary} />
+        </TouchableOpacity>
+      </View>
+
+      {/* Filtro de Ligas */}
+      <View style={styles.filtroContainer}>
+        <TouchableOpacity 
+          style={styles.filtroButton}
+          onPress={() => setShowFiltroModal(true)}
+        >
+          <Ionicons name="filter" size={18} color={theme.colors.primary} />
+          <Text style={styles.filtroButtonText}>{getFiltroNome()}</Text>
+          <Ionicons name="chevron-down" size={18} color={theme.colors.textSecondary} />
         </TouchableOpacity>
       </View>
 
@@ -578,5 +725,83 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: theme.fontSize.sm,
     color: theme.colors.textSecondary,
+  },
+  // Estilos do Filtro
+  filtroContainer: {
+    paddingHorizontal: theme.spacing.lg,
+    marginBottom: theme.spacing.md,
+  },
+  filtroButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.surface,
+    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    gap: theme.spacing.sm,
+  },
+  filtroButtonText: {
+    flex: 1,
+    fontSize: theme.fontSize.sm,
+    color: theme.colors.textPrimary,
+    fontWeight: theme.fontWeight.medium,
+  },
+  // Estilos do Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: theme.colors.surface,
+    borderTopLeftRadius: theme.borderRadius.xl,
+    borderTopRightRadius: theme.borderRadius.xl,
+    maxHeight: '70%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: theme.spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  modalTitle: {
+    fontSize: theme.fontSize.lg,
+    fontWeight: theme.fontWeight.bold,
+    color: theme.colors.textPrimary,
+  },
+  modalList: {
+    padding: theme.spacing.md,
+  },
+  filtroItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.borderRadius.md,
+    marginBottom: theme.spacing.xs,
+  },
+  filtroItemAtivo: {
+    backgroundColor: theme.colors.primaryLight || 'rgba(0, 255, 136, 0.1)',
+  },
+  filtroItemContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.md,
+  },
+  filtroLogo: {
+    width: 28,
+    height: 28,
+    resizeMode: 'contain',
+  },
+  filtroItemText: {
+    fontSize: theme.fontSize.md,
+    color: theme.colors.textPrimary,
+  },
+  filtroItemTextAtivo: {
+    color: theme.colors.primary,
+    fontWeight: theme.fontWeight.semibold,
   },
 });

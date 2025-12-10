@@ -3,23 +3,62 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const AuthContext = createContext({});
 
+// Chaves do AsyncStorage
+const STORAGE_KEYS = {
+  USER: '@FutebolApp:user',
+  USERS: '@FutebolApp:users',
+  FAVORITOS: '@FutebolApp:favoritos', // Favoritos locais (sem login)
+  PREFERENCIAS: '@FutebolApp:preferencias', // Preferências de exibição
+};
+
+// Estrutura padrão de favoritos e preferências
+const DEFAULT_FAVORITOS = {
+  times: [],
+  campeonatos: [],
+  atletas: [],
+};
+
+const DEFAULT_PREFERENCIAS = {
+  ligaFavorita: null, // Código da liga favorita (BSA, PL, etc.)
+  timeFavorito: null, // ID do time favorito
+  filtroJogos: 'todos', // 'todos', 'liga_favorita', 'time_favorito'
+};
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [favoritos, setFavoritos] = useState(DEFAULT_FAVORITOS);
+  const [preferencias, setPreferencias] = useState(DEFAULT_PREFERENCIAS);
 
-  // Carregar usuário salvo ao iniciar
+  // Carregar dados ao iniciar
   useEffect(() => {
-    loadStoredUser();
+    loadStoredData();
   }, []);
 
-  async function loadStoredUser() {
+  async function loadStoredData() {
     try {
-      const storedUser = await AsyncStorage.getItem('@FutebolApp:user');
+      // Carregar usuário (se houver login)
+      const storedUser = await AsyncStorage.getItem(STORAGE_KEYS.USER);
       if (storedUser) {
-        setUser(JSON.parse(storedUser));
+        const userData = JSON.parse(storedUser);
+        setUser(userData);
+        // Se tem usuário logado, usar favoritos dele
+        setFavoritos(userData.favoritos || DEFAULT_FAVORITOS);
+      } else {
+        // Se não tem login, carregar favoritos locais
+        const storedFavoritos = await AsyncStorage.getItem(STORAGE_KEYS.FAVORITOS);
+        if (storedFavoritos) {
+          setFavoritos(JSON.parse(storedFavoritos));
+        }
+      }
+
+      // Carregar preferências (independente de login)
+      const storedPreferencias = await AsyncStorage.getItem(STORAGE_KEYS.PREFERENCIAS);
+      if (storedPreferencias) {
+        setPreferencias(JSON.parse(storedPreferencias));
       }
     } catch (error) {
-      console.error('Erro ao carregar usuário:', error);
+      console.error('Erro ao carregar dados:', error);
     } finally {
       setLoading(false);
     }
@@ -28,33 +67,24 @@ export function AuthProvider({ children }) {
   // Cadastrar novo usuário
   async function signUp(nome, email, senha) {
     try {
-      // Em produção, isso seria uma chamada à API
       const newUser = {
         id: Date.now().toString(),
         nome,
         email,
-        favoritos: {
-          times: [],
-          campeonatos: [],
-          atletas: [],
-        },
+        favoritos: favoritos, // Usar favoritos locais existentes
         createdAt: new Date().toISOString(),
       };
 
-      // Salvar no AsyncStorage (simulando banco de dados)
-      const users = await AsyncStorage.getItem('@FutebolApp:users');
+      const users = await AsyncStorage.getItem(STORAGE_KEYS.USERS);
       const usersList = users ? JSON.parse(users) : [];
       
-      // Verificar se email já existe
       if (usersList.find(u => u.email === email)) {
         throw new Error('Este email já está cadastrado');
       }
 
       usersList.push({ ...newUser, senha });
-      await AsyncStorage.setItem('@FutebolApp:users', JSON.stringify(usersList));
-      
-      // Fazer login automático
-      await AsyncStorage.setItem('@FutebolApp:user', JSON.stringify(newUser));
+      await AsyncStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(usersList));
+      await AsyncStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(newUser));
       setUser(newUser);
 
       return newUser;
@@ -66,7 +96,7 @@ export function AuthProvider({ children }) {
   // Login
   async function signIn(email, senha) {
     try {
-      const users = await AsyncStorage.getItem('@FutebolApp:users');
+      const users = await AsyncStorage.getItem(STORAGE_KEYS.USERS);
       const usersList = users ? JSON.parse(users) : [];
 
       const foundUser = usersList.find(u => u.email === email && u.senha === senha);
@@ -77,8 +107,18 @@ export function AuthProvider({ children }) {
 
       const { senha: _, ...userWithoutPassword } = foundUser;
       
-      await AsyncStorage.setItem('@FutebolApp:user', JSON.stringify(userWithoutPassword));
+      // Mesclar favoritos locais com favoritos do usuário
+      const mergedFavoritos = {
+        times: [...new Set([...(foundUser.favoritos?.times || []), ...favoritos.times])],
+        campeonatos: [...new Set([...(foundUser.favoritos?.campeonatos || []), ...favoritos.campeonatos])],
+        atletas: [...new Set([...(foundUser.favoritos?.atletas || []), ...favoritos.atletas])],
+      };
+
+      userWithoutPassword.favoritos = mergedFavoritos;
+      
+      await AsyncStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(userWithoutPassword));
       setUser(userWithoutPassword);
+      setFavoritos(mergedFavoritos);
 
       return userWithoutPassword;
     } catch (error) {
@@ -89,28 +129,27 @@ export function AuthProvider({ children }) {
   // Logout
   async function signOut() {
     try {
-      await AsyncStorage.removeItem('@FutebolApp:user');
+      await AsyncStorage.removeItem(STORAGE_KEYS.USER);
       setUser(null);
+      // Manter favoritos locais após logout
     } catch (error) {
       console.error('Erro ao fazer logout:', error);
     }
   }
 
-  // Helper para obter o ID de um item no novo formato API-Football
+  // Helper para obter o ID de um item
   function getItemId(item, tipo) {
     if (tipo === 'times') return item.team?.id;
-    if (tipo === 'campeonatos') return item.league?.id;
+    if (tipo === 'campeonatos') return item.league?.id || item.league?.code;
     if (tipo === 'atletas') return item.player?.id;
     return null;
   }
 
-  // Atualizar favoritos
+  // Atualizar favoritos (funciona com ou sem login)
   async function toggleFavorito(tipo, item) {
     try {
-      if (!user) return;
-
-      const updatedFavoritos = { ...user.favoritos };
-      const lista = updatedFavoritos[tipo];
+      const updatedFavoritos = { ...favoritos };
+      const lista = [...updatedFavoritos[tipo]];
       const itemId = getItemId(item, tipo);
       
       const index = lista.findIndex(f => getItemId(f, tipo) === itemId);
@@ -121,21 +160,28 @@ export function AuthProvider({ children }) {
         lista.push(item);
       }
 
-      const updatedUser = { ...user, favoritos: updatedFavoritos };
-      
-      // Atualizar no storage
-      await AsyncStorage.setItem('@FutebolApp:user', JSON.stringify(updatedUser));
-      
-      // Atualizar na lista de usuários
-      const users = await AsyncStorage.getItem('@FutebolApp:users');
-      const usersList = users ? JSON.parse(users) : [];
-      const userIndex = usersList.findIndex(u => u.id === user.id);
-      if (userIndex >= 0) {
-        usersList[userIndex] = { ...usersList[userIndex], favoritos: updatedFavoritos };
-        await AsyncStorage.setItem('@FutebolApp:users', JSON.stringify(usersList));
+      updatedFavoritos[tipo] = lista;
+
+      if (user) {
+        // Se tem login, salvar no usuário
+        const updatedUser = { ...user, favoritos: updatedFavoritos };
+        await AsyncStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(updatedUser));
+        
+        // Atualizar na lista de usuários
+        const users = await AsyncStorage.getItem(STORAGE_KEYS.USERS);
+        const usersList = users ? JSON.parse(users) : [];
+        const userIndex = usersList.findIndex(u => u.id === user.id);
+        if (userIndex >= 0) {
+          usersList[userIndex] = { ...usersList[userIndex], favoritos: updatedFavoritos };
+          await AsyncStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(usersList));
+        }
+        setUser(updatedUser);
+      } else {
+        // Se não tem login, salvar localmente
+        await AsyncStorage.setItem(STORAGE_KEYS.FAVORITOS, JSON.stringify(updatedFavoritos));
       }
 
-      setUser(updatedUser);
+      setFavoritos(updatedFavoritos);
     } catch (error) {
       console.error('Erro ao atualizar favoritos:', error);
     }
@@ -143,9 +189,35 @@ export function AuthProvider({ children }) {
 
   // Verificar se é favorito
   function isFavorito(tipo, itemId) {
-    if (!user || !user.favoritos) return false;
-    const lista = user.favoritos[tipo];
+    if (!favoritos) return false;
+    const lista = favoritos[tipo] || [];
     return lista.some(f => getItemId(f, tipo) === itemId);
+  }
+
+  // Atualizar preferências (funciona sem login)
+  async function updatePreferencias(novasPreferencias) {
+    try {
+      const updated = { ...preferencias, ...novasPreferencias };
+      await AsyncStorage.setItem(STORAGE_KEYS.PREFERENCIAS, JSON.stringify(updated));
+      setPreferencias(updated);
+    } catch (error) {
+      console.error('Erro ao atualizar preferências:', error);
+    }
+  }
+
+  // Definir liga favorita
+  async function setLigaFavorita(ligaCode) {
+    await updatePreferencias({ ligaFavorita: ligaCode });
+  }
+
+  // Definir time favorito
+  async function setTimeFavorito(timeId) {
+    await updatePreferencias({ timeFavorito: timeId });
+  }
+
+  // Definir filtro de jogos
+  async function setFiltroJogos(filtro) {
+    await updatePreferencias({ filtroJogos: filtro });
   }
 
   return (
@@ -154,11 +226,17 @@ export function AuthProvider({ children }) {
         signed: !!user,
         user,
         loading,
+        favoritos,
+        preferencias,
         signUp,
         signIn,
         signOut,
         toggleFavorito,
         isFavorito,
+        updatePreferencias,
+        setLigaFavorita,
+        setTimeFavorito,
+        setFiltroJogos,
       }}
     >
       {children}
