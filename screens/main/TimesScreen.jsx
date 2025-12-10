@@ -1,3 +1,19 @@
+/**
+ * TimesScreen.jsx
+ * 
+ * Tela de listagem de times de futebol.
+ * Permite buscar times e adicionar aos favoritos.
+ * 
+ * Funcionalidades:
+ * - Lista de times por campeonato
+ * - Busca por nome do time
+ * - Adicionar/remover dos favoritos
+ * - Navegação para detalhes do time
+ * 
+ * APIs utilizadas:
+ * - Football-Data.org: Lista de times por campeonato
+ */
+
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
@@ -11,9 +27,11 @@ import {
   TextInput,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import theme from '../../utils/theme';
-import { TIMES_MOCK, getAllTeams } from '../../services/api';
+import { getAllTeams } from '../../services/api';
+import { TIMES_MOCK } from '../../services/mockData';
 import { useAuth } from '../../context/AuthContext';
 
 function TimeItem({ time, onPress, isFavorito, onToggleFavorito }) {
@@ -152,7 +170,8 @@ export default function TimesScreen({ navigation }) {
   );
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
       {/* Barra de busca */}
       <View style={styles.searchContainer}>
         <Ionicons name="search" size={20} color={theme.colors.textMuted} />
@@ -256,10 +275,15 @@ export default function TimesScreen({ navigation }) {
         </>
       )}
     </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  },
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,

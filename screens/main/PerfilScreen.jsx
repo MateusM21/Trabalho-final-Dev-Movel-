@@ -1,4 +1,20 @@
-import React from 'react';
+/**
+ * PerfilScreen.jsx
+ * 
+ * Tela de perfil do usuário.
+ * Exibe informações do usuário, favoritos e configurações.
+ * 
+ * Funcionalidades:
+ * - Exibir dados do usuário logado
+ * - Gerenciar times/campeonatos/atletas favoritos
+ * - Limpar cache do aplicativo
+ * - Fazer logout
+ * 
+ * Dados persistidos:
+ * - AsyncStorage: Favoritos e preferências do usuário
+ */
+
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,9 +24,11 @@ import {
   Image,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import theme from '../../utils/theme';
 import { useAuth } from '../../context/AuthContext';
+import { clearAllCache, getCacheStats } from '../../services/api';
 
 // Componente de item favorito
 function FavoritoItem({ item, tipo, onPress, onRemove }) {
@@ -90,6 +108,36 @@ function FavoritosSection({ titulo, icone, items, tipo, onPressItem, onRemoveIte
 
 export default function PerfilScreen({ navigation }) {
   const { user, signOut, toggleFavorito, favoritos } = useAuth();
+  const [cacheStats, setCacheStats] = useState({ itemCount: 0, totalSizeKB: '0' });
+
+  // Carregar estatísticas do cache
+  useEffect(() => {
+    loadCacheStats();
+  }, []);
+
+  const loadCacheStats = async () => {
+    const stats = await getCacheStats();
+    setCacheStats(stats);
+  };
+
+  const handleClearCache = () => {
+    Alert.alert(
+      'Limpar Cache',
+      `Isso irá remover ${cacheStats.itemCount} itens (${cacheStats.totalSizeKB} KB) do cache.\n\nOs dados serão buscados novamente da internet na próxima vez.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { 
+          text: 'Limpar', 
+          style: 'destructive', 
+          onPress: async () => {
+            await clearAllCache();
+            await loadCacheStats();
+            Alert.alert('Sucesso', 'Cache limpo com sucesso!');
+          } 
+        },
+      ]
+    );
+  };
 
   const handleLogout = () => {
     Alert.alert(
@@ -263,7 +311,8 @@ export default function PerfilScreen({ navigation }) {
   }
 
   return (
-    <ScrollView style={styles.container}>
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView style={styles.container}>
       {/* Header do Perfil */}
       <View style={styles.header}>
         <View style={styles.avatarContainer}>
@@ -348,6 +397,17 @@ export default function PerfilScreen({ navigation }) {
           <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
         </TouchableOpacity>
         
+        <TouchableOpacity style={styles.optionItem} onPress={handleClearCache}>
+          <Ionicons name="trash-outline" size={22} color={theme.colors.textPrimary} />
+          <View style={styles.optionContent}>
+            <Text style={styles.optionText}>Limpar Cache</Text>
+            <Text style={styles.optionSubtext}>
+              {cacheStats.itemCount} itens • {cacheStats.totalSizeKB} KB
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
+        </TouchableOpacity>
+        
         <TouchableOpacity style={styles.optionItem}>
           <Ionicons name="help-circle-outline" size={22} color={theme.colors.textPrimary} />
           <Text style={styles.optionText}>Ajuda</Text>
@@ -363,10 +423,15 @@ export default function PerfilScreen({ navigation }) {
       {/* Espaço inferior */}
       <View style={{ height: 30 }} />
     </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  },
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
@@ -582,11 +647,20 @@ const styles = StyleSheet.create({
     padding: theme.spacing.md,
     marginBottom: theme.spacing.sm,
   },
+  optionContent: {
+    flex: 1,
+    marginLeft: theme.spacing.md,
+  },
   optionText: {
     flex: 1,
     fontSize: theme.fontSize.md,
     color: theme.colors.textPrimary,
     marginLeft: theme.spacing.md,
+  },
+  optionSubtext: {
+    fontSize: theme.fontSize.xs,
+    color: theme.colors.textMuted,
+    marginTop: 2,
   },
   logoutItem: {
     marginTop: theme.spacing.md,

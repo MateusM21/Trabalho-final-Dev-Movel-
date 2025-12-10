@@ -1,3 +1,20 @@
+/**
+ * PartidasScreen.jsx
+ * 
+ * Tela de listagem de todas as partidas.
+ * Permite filtrar por campeonato e visualizar partidas ao vivo,
+ * agendadas e finalizadas.
+ * 
+ * Funcionalidades:
+ * - Lista de partidas organizadas por status (ao vivo, agendadas, finalizadas)
+ * - Filtro por campeonato
+ * - Pull-to-refresh para atualizar
+ * - Navegação para detalhes da partida
+ * 
+ * APIs utilizadas:
+ * - Football-Data.org: Lista de partidas
+ */
+
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -8,18 +25,35 @@ import {
   Image,
   RefreshControl,
   ActivityIndicator,
+  Modal,
+  ScrollView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import theme from '../../utils/theme';
 import { 
   getLiveMatches,
   getFixturesByDate,
+  getUpcomingMatches,
+  getFinishedMatches,
   isMatchLive, 
   isMatchFinished, 
   isMatchScheduled,
   formatTimeBrasilia,
   formatDateBrasilia,
 } from '../../services/api';
+
+// Lista de campeonatos para filtro
+const CAMPEONATOS_FILTRO = [
+  { code: 'todos', name: 'Todos', logo: null },
+  { code: 'BSA', name: 'Brasileirão', logo: 'https://a.espncdn.com/combiner/i?img=/i/leaguelogos/soccer/500/85.png' },
+  { code: 'CL', name: 'Champions', logo: 'https://crests.football-data.org/CL.png' },
+  { code: 'PL', name: 'Premier', logo: 'https://crests.football-data.org/PL.png' },
+  { code: 'PD', name: 'La Liga', logo: 'https://crests.football-data.org/PD.png' },
+  { code: 'SA', name: 'Serie A', logo: 'https://crests.football-data.org/SA.png' },
+  { code: 'BL1', name: 'Bundesliga', logo: 'https://crests.football-data.org/BL1.png' },
+  { code: 'FL1', name: 'Ligue 1', logo: 'https://crests.football-data.org/FL1.png' },
+];
 
 function PartidaCard({ partida, onPress }) {
   const isLive = isMatchLive(partida.fixture.status.short);
@@ -129,6 +163,8 @@ export default function PartidasScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [partidas, setPartidas] = useState([]);
   const [filtro, setFiltro] = useState('todas');
+  const [filtroCampeonato, setFiltroCampeonato] = useState('todos');
+  const [modalCampeonato, setModalCampeonato] = useState(false);
 
   const loadPartidas = async () => {
     try {
@@ -141,12 +177,45 @@ export default function PartidasScreen({ navigation }) {
       const todayData = await getFixturesByDate(today);
       const partidasHoje = todayData?.response || [];
 
+      // Buscar partidas dos próximos dias (limite maior)
+      const upcomingData = await getUpcomingMatches(50);
+      const partidasProximas = upcomingData?.response || [];
+
+      // Buscar partidas finalizadas dos últimos 7 dias (incluindo Champions League)
+      const finishedPromises = ['BSA', 'PL', 'PD', 'SA', 'BL1', 'FL1', 'CL'].map(code => 
+        getFinishedMatches(code, 10).catch(() => ({ response: [] }))
+      );
+      const finishedResults = await Promise.all(finishedPromises);
+      const partidasFinalizadas = finishedResults.flatMap(r => r?.response || []);
+
       // Combinar, removendo duplicatas
       const todasPartidas = [...partidasAoVivo];
+      
       partidasHoje.forEach(p => {
         if (!todasPartidas.find(t => t.fixture.id === p.fixture.id)) {
           todasPartidas.push(p);
         }
+      });
+
+      partidasProximas.forEach(p => {
+        if (!todasPartidas.find(t => t.fixture.id === p.fixture.id)) {
+          todasPartidas.push(p);
+        }
+      });
+
+      partidasFinalizadas.forEach(p => {
+        if (!todasPartidas.find(t => t.fixture.id === p.fixture.id)) {
+          todasPartidas.push(p);
+        }
+      });
+
+      // Ordenar: ao vivo primeiro, depois por data
+      todasPartidas.sort((a, b) => {
+        const aIsLive = isMatchLive(a.fixture?.status?.short);
+        const bIsLive = isMatchLive(b.fixture?.status?.short);
+        if (aIsLive && !bIsLive) return -1;
+        if (!aIsLive && bIsLive) return 1;
+        return new Date(a.fixture.date) - new Date(b.fixture.date);
       });
 
       setPartidas(todasPartidas);
@@ -177,30 +246,110 @@ export default function PartidasScreen({ navigation }) {
     { key: 'finalizado', label: 'Finalizadas' },
   ];
 
-  const partidasFiltradas = filtro === 'todas' 
-    ? partidas 
-    : filtro === 'ao_vivo' 
-      ? partidas.filter(p => isMatchLive(p.fixture.status.short))
-      : filtro === 'agendado'
-        ? partidas.filter(p => isMatchScheduled(p.fixture.status.short))
-        : partidas.filter(p => isMatchFinished(p.fixture.status.short));
+  // Aplicar filtro de status
+  const aplicarFiltroStatus = (lista) => {
+    if (!lista || !Array.isArray(lista)) return [];
+    if (filtro === 'todas') return lista;
+    if (filtro === 'ao_vivo') return lista.filter(p => isMatchLive(p.fixture?.status?.short));
+    if (filtro === 'agendado') return lista.filter(p => isMatchScheduled(p.fixture?.status?.short));
+    if (filtro === 'finalizado') return lista.filter(p => isMatchFinished(p.fixture?.status?.short));
+    return lista;
+  };
+
+  // Aplicar filtro de campeonato
+  const aplicarFiltroCampeonato = (lista) => {
+    if (!lista || !Array.isArray(lista)) return [];
+    if (filtroCampeonato === 'todos') return lista;
+    return lista.filter(p => p.league?.code === filtroCampeonato);
+  };
+
+  // Combinar os dois filtros
+  const partidasFiltradas = aplicarFiltroCampeonato(aplicarFiltroStatus(partidas));
+
+  // Obter o campeonato selecionado para exibir no botão
+  const campeonatoSelecionado = CAMPEONATOS_FILTRO.find(c => c.code === filtroCampeonato) || CAMPEONATOS_FILTRO[0];
 
   return (
-    <View style={styles.container}>
-      {/* Filtros */}
-      <View style={styles.filtrosContainer}>
-        {filtros.map((f) => (
-          <TouchableOpacity
-            key={f.key}
-            style={[styles.filtroButton, filtro === f.key && styles.filtroButtonActive]}
-            onPress={() => setFiltro(f.key)}
-          >
-            <Text style={[styles.filtroText, filtro === f.key && styles.filtroTextActive]}>
-              {f.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+      {/* Filtro de Campeonato */}
+      <View style={styles.campeonatoFilterContainer}>
+        <TouchableOpacity 
+          style={styles.campeonatoButton}
+          onPress={() => setModalCampeonato(true)}
+        >
+          {campeonatoSelecionado.logo && (
+            <Image source={{ uri: campeonatoSelecionado.logo }} style={styles.campeonatoLogo} />
+          )}
+          <Text style={styles.campeonatoButtonText}>
+            {campeonatoSelecionado.name}
+          </Text>
+          <Ionicons name="chevron-down" size={18} color={theme.colors.primary} />
+        </TouchableOpacity>
       </View>
+
+      {/* Filtros de Status */}
+      <View style={styles.filtrosContainer}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          {filtros.map((f) => (
+            <TouchableOpacity
+              key={f.key}
+              style={[styles.filtroButton, filtro === f.key && styles.filtroButtonActive]}
+              onPress={() => setFiltro(f.key)}
+            >
+              <Text style={[styles.filtroText, filtro === f.key && styles.filtroTextActive]}>
+                {f.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
+      {/* Modal de seleção de Campeonato */}
+      <Modal
+        visible={modalCampeonato}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setModalCampeonato(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setModalCampeonato(false)}
+        >
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Selecionar Campeonato</Text>
+            {CAMPEONATOS_FILTRO.map((camp) => (
+              <TouchableOpacity
+                key={camp.code}
+                style={[
+                  styles.modalOption,
+                  filtroCampeonato === camp.code && styles.modalOptionActive
+                ]}
+                onPress={() => {
+                  setFiltroCampeonato(camp.code);
+                  setModalCampeonato(false);
+                }}
+              >
+                {camp.logo ? (
+                  <Image source={{ uri: camp.logo }} style={styles.modalOptionLogo} />
+                ) : (
+                  <Ionicons name="football-outline" size={24} color={theme.colors.textSecondary} />
+                )}
+                <Text style={[
+                  styles.modalOptionText,
+                  filtroCampeonato === camp.code && styles.modalOptionTextActive
+                ]}>
+                  {camp.name}
+                </Text>
+                {filtroCampeonato === camp.code && (
+                  <Ionicons name="checkmark" size={20} color={theme.colors.primary} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       {loading ? (
         <View style={styles.loadingContainer}>
@@ -234,10 +383,15 @@ export default function PartidasScreen({ navigation }) {
       />
       )}
     </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  },
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
@@ -420,5 +574,80 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.md,
     fontSize: theme.fontSize.md,
     color: theme.colors.textSecondary,
+  },
+  // Estilos do filtro de campeonato
+  campeonatoFilterContainer: {
+    backgroundColor: theme.colors.surface,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  campeonatoButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.surfaceLight,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.borderRadius.md,
+    alignSelf: 'flex-start',
+  },
+  campeonatoLogo: {
+    width: 24,
+    height: 24,
+    marginRight: theme.spacing.sm,
+    resizeMode: 'contain',
+  },
+  campeonatoButtonText: {
+    fontSize: theme.fontSize.sm,
+    fontWeight: theme.fontWeight.medium,
+    color: theme.colors.textPrimary,
+    marginRight: theme.spacing.xs,
+  },
+  // Estilos do Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: theme.colors.surface,
+    borderTopLeftRadius: theme.borderRadius.xl,
+    borderTopRightRadius: theme.borderRadius.xl,
+    padding: theme.spacing.lg,
+    maxHeight: '70%',
+  },
+  modalTitle: {
+    fontSize: theme.fontSize.lg,
+    fontWeight: theme.fontWeight.bold,
+    color: theme.colors.textPrimary,
+    marginBottom: theme.spacing.lg,
+    textAlign: 'center',
+  },
+  modalOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.sm,
+    borderRadius: theme.borderRadius.md,
+    marginBottom: theme.spacing.xs,
+  },
+  modalOptionActive: {
+    backgroundColor: theme.colors.primaryMuted,
+  },
+  modalOptionLogo: {
+    width: 28,
+    height: 28,
+    marginRight: theme.spacing.md,
+    resizeMode: 'contain',
+  },
+  modalOptionText: {
+    flex: 1,
+    fontSize: theme.fontSize.md,
+    color: theme.colors.textPrimary,
+  },
+  modalOptionTextActive: {
+    fontWeight: theme.fontWeight.bold,
+    color: theme.colors.primary,
   },
 });

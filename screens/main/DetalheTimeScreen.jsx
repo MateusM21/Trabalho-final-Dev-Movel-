@@ -1,3 +1,19 @@
+/**
+ * DetalheTimeScreen.jsx
+ * 
+ * Tela de detalhes de um time específico.
+ * Exibe informações do clube, elenco e próximos jogos.
+ * 
+ * Funcionalidades:
+ * - Informações gerais do time (estádio, fundação)
+ * - Lista do elenco atual
+ * - Próximas partidas agendadas
+ * - Adicionar time aos favoritos
+ * 
+ * APIs utilizadas:
+ * - Football-Data.org: Dados do time e partidas
+ */
+
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -10,10 +26,12 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import theme from '../../utils/theme';
 import { useAuth } from '../../context/AuthContext';
-import { ATLETAS_MOCK, isMatchScheduled, getTeamFixtures, getTeamLastFixtures, getSquad, formatTimeBrasilia, formatToBrasilia } from '../../services/api';
+import { isMatchScheduled, getTeamFixtures, getTeamLastFixtures, getSquad, formatTimeBrasilia, formatToBrasilia } from '../../services/api';
+import { ATLETAS_MOCK } from '../../services/mockData';
 
 // Componente de Tab
 function TabButton({ title, active, onPress }) {
@@ -148,6 +166,7 @@ export default function DetalheTimeScreen({ route, navigation }) {
 
       if (squadData?.response?.[0]?.players) {
         // Formatar dados do elenco para o formato esperado
+        // Incluir dados do time para que apareçam no perfil do jogador
         const players = squadData.response[0].players.map(p => ({
           player: {
             id: p.id,
@@ -155,6 +174,15 @@ export default function DetalheTimeScreen({ route, navigation }) {
             photo: p.photo,
             position: p.position,
             number: p.number,
+            nationality: p.nationality,
+            dateOfBirth: p.dateOfBirth,
+            age: p.dateOfBirth ? new Date().getFullYear() - new Date(p.dateOfBirth).getFullYear() : null,
+          },
+          team: {
+            id: time.team.id,
+            name: time.team.name,
+            crest: time.team.logo || time.team.crest,
+            isInApp: true,
           }
         }));
         setElenco(players);
@@ -281,7 +309,8 @@ export default function DetalheTimeScreen({ route, navigation }) {
   };
 
   return (
-    <ScrollView 
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView 
       style={styles.container}
       refreshControl={
         <RefreshControl
@@ -339,11 +368,16 @@ export default function DetalheTimeScreen({ route, navigation }) {
       ) : (
         renderContent()
       )}
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  },
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,

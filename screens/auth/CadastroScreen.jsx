@@ -1,3 +1,21 @@
+/**
+ * CadastroScreen.jsx
+ * 
+ * Tela de cadastro de novo usuário.
+ * Coleta dados básicos para criar uma conta.
+ * 
+ * Funcionalidades:
+ * - Cadastro com nome, email e senha
+ * - Validação de campos obrigatórios
+ * - Confirmação de senha
+ * - Mostrar/ocultar senha
+ * 
+ * Validações:
+ * - Email no formato correto
+ * - Senha mínima de 6 caracteres
+ * - Senhas devem coincidir
+ */
+
 import React, { useState } from 'react';
 import {
   View,
@@ -11,6 +29,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import theme from '../../utils/theme';
@@ -53,10 +72,11 @@ export default function CadastroScreen({ navigation }) {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
       <ScrollView 
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
@@ -184,11 +204,16 @@ export default function CadastroScreen({ navigation }) {
           <Text style={styles.termsLink}>Política de Privacidade</Text>
         </Text>
       </ScrollView>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  },
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,

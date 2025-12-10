@@ -1,3 +1,18 @@
+/**
+ * CampeonatosScreen.jsx
+ * 
+ * Tela de listagem de campeonatos disponíveis.
+ * Organiza os campeonatos por continente e país.
+ * 
+ * Funcionalidades:
+ * - Lista de campeonatos agrupados por região
+ * - Seções expansíveis (accordion)
+ * - Navegação para detalhes do campeonato
+ * 
+ * APIs utilizadas:
+ * - Football-Data.org: Dados dos campeonatos
+ */
+
 import React, { useState } from 'react';
 import {
   View,
@@ -8,9 +23,10 @@ import {
   Image,
   RefreshControl,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import theme from '../../utils/theme';
-import { CAMPEONATOS_ESTRUTURADOS } from '../../services/api';
+import { CAMPEONATOS_ESTRUTURADOS } from '../../services/mockData';
 
 function CampeonatoItem({ campeonato, onPress }) {
   const league = campeonato.league;
@@ -133,7 +149,8 @@ export default function CampeonatosScreen({ navigation }) {
   };
 
   return (
-    <ScrollView 
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView 
       style={styles.container}
       refreshControl={
         <RefreshControl
@@ -217,10 +234,15 @@ export default function CampeonatosScreen({ navigation }) {
 
       <View style={{ height: 30 }} />
     </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  },
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,

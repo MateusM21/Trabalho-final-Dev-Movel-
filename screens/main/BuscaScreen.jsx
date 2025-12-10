@@ -1,4 +1,20 @@
-import React, { useState } from 'react';
+/**
+ * BuscaScreen.jsx
+ * 
+ * Tela de busca global do aplicativo.
+ * Permite pesquisar times, campeonatos e atletas.
+ * 
+ * Funcionalidades:
+ * - Busca unificada por nome
+ * - Resultados categorizados por tipo
+ * - Sugestões rápidas
+ * - Navegação para detalhes
+ * 
+ * APIs utilizadas:
+ * - Football-Data.org: Busca de times
+ */
+
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,10 +23,13 @@ import {
   TouchableOpacity,
   FlatList,
   Image,
+  ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import theme from '../../utils/theme';
-import { TIMES_MOCK, CAMPEONATOS_MOCK, ATLETAS_MOCK } from '../../services/api';
+import { searchTeams } from '../../services/api';
+import { TIMES_MOCK, CAMPEONATOS_MOCK, ATLETAS_MOCK } from '../../services/mockData';
 
 // Componente de Resultado
 function ResultItem({ item, tipo, onPress }) {
@@ -71,8 +90,12 @@ export default function BuscaScreen({ navigation }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [resultados, setResultados] = useState([]);
   const [buscaRealizada, setBuscaRealizada] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const buscar = (query) => {
+  // Debounce para evitar muitas chamadas
+  const debounceRef = React.useRef(null);
+
+  const buscar = useCallback(async (query) => {
     setSearchQuery(query);
     
     if (query.trim().length < 2) {
@@ -81,27 +104,70 @@ export default function BuscaScreen({ navigation }) {
       return;
     }
 
-    setBuscaRealizada(true);
-    const termoBusca = query.toLowerCase();
+    // Limpar timeout anterior
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
 
-    // Buscar em times
-    const times = TIMES_MOCK.filter(
-      t => t.team.name.toLowerCase().includes(termoBusca) ||
-           (t.team.code && t.team.code.toLowerCase().includes(termoBusca))
-    ).map(t => ({ ...t, _tipo: 'time' }));
+    // Debounce de 300ms
+    debounceRef.current = setTimeout(async () => {
+      setLoading(true);
+      setBuscaRealizada(true);
+      const termoBusca = query.toLowerCase().trim();
 
-    // Buscar em campeonatos
-    const campeonatos = CAMPEONATOS_MOCK.filter(
-      c => c.league.name.toLowerCase().includes(termoBusca)
-    ).map(c => ({ ...c, _tipo: 'campeonato' }));
+      try {
+        // Buscar em times - primeiro os mocks, depois a API
+        let times = TIMES_MOCK.filter(
+          t => t.team?.name?.toLowerCase().includes(termoBusca) ||
+               (t.team?.code && t.team.code.toLowerCase().includes(termoBusca)) ||
+               (t.team?.country && t.team.country.toLowerCase().includes(termoBusca))
+        ).map(t => ({ ...t, _tipo: 'time' }));
 
-    // Buscar em atletas
-    const atletas = ATLETAS_MOCK.filter(
-      a => a.player.name.toLowerCase().includes(termoBusca)
-    ).map(a => ({ ...a, _tipo: 'atleta' }));
+        // Se encontrou poucos resultados nos mocks, buscar na API
+        if (times.length < 5) {
+          try {
+            const apiResult = await searchTeams(query);
+            if (apiResult?.response) {
+              // Adicionar times da API que não estão nos mocks
+              apiResult.response.forEach(t => {
+                if (!times.find(m => m.team?.id === t.team?.id)) {
+                  times.push({ ...t, _tipo: 'time' });
+                }
+              });
+            }
+          } catch (err) {
+            console.log('Erro na busca da API:', err);
+          }
+        }
 
-    setResultados([...times, ...campeonatos, ...atletas]);
-  };
+        // Buscar em campeonatos
+        const campeonatos = CAMPEONATOS_MOCK.filter(
+          c => c.league?.name?.toLowerCase().includes(termoBusca) ||
+               (c.league?.code && c.league.code.toLowerCase().includes(termoBusca)) ||
+               (c.league?.country && c.league.country.toLowerCase().includes(termoBusca))
+        ).map(c => ({ ...c, _tipo: 'campeonato' }));
+
+        // Buscar em atletas
+        const atletas = ATLETAS_MOCK.filter(
+          a => a.player?.name?.toLowerCase().includes(termoBusca) ||
+               (a.player?.nationality && a.player.nationality.toLowerCase().includes(termoBusca))
+        ).map(a => ({ ...a, _tipo: 'atleta' }));
+
+        // Ordenar times por relevância (nome começa com o termo primeiro)
+        times.sort((a, b) => {
+          const aStartsWith = a.team?.name?.toLowerCase().startsWith(termoBusca) ? 0 : 1;
+          const bStartsWith = b.team?.name?.toLowerCase().startsWith(termoBusca) ? 0 : 1;
+          return aStartsWith - bStartsWith;
+        });
+
+        setResultados([...times, ...campeonatos, ...atletas]);
+      } catch (error) {
+        console.error('Erro na busca:', error);
+      } finally {
+        setLoading(false);
+      }
+    }, 300);
+  }, []);
 
   const handlePressItem = (item) => {
     switch (item._tipo) {
@@ -139,7 +205,8 @@ export default function BuscaScreen({ navigation }) {
   ];
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
       {/* Barra de Busca */}
       <View style={styles.searchContainer}>
         <Ionicons name="search" size={20} color={theme.colors.textMuted} />
@@ -176,8 +243,16 @@ export default function BuscaScreen({ navigation }) {
         </View>
       )}
 
+      {/* Loading */}
+      {loading && (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <Text style={styles.loadingText}>Buscando...</Text>
+        </View>
+      )}
+
       {/* Resultados */}
-      {buscaRealizada && (
+      {buscaRealizada && !loading && (
         <>
           <Text style={styles.resultadosHeader}>
             {resultados.length} {resultados.length === 1 ? 'resultado' : 'resultados'} para "{searchQuery}"
@@ -204,11 +279,16 @@ export default function BuscaScreen({ navigation }) {
           />
         </>
       )}
-    </View>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  },
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
@@ -321,5 +401,15 @@ const styles = StyleSheet.create({
     fontSize: theme.fontSize.sm,
     color: theme.colors.textSecondary,
     marginTop: theme.spacing.xs,
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: theme.spacing.xxl,
+  },
+  loadingText: {
+    fontSize: theme.fontSize.md,
+    color: theme.colors.textSecondary,
+    marginTop: theme.spacing.md,
   },
 });

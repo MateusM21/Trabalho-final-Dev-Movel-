@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Modal,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import theme from '../../utils/theme';
 import { useAuth } from '../../context/AuthContext';
@@ -26,6 +27,33 @@ import {
   formatTimeBrasilia,
   getNextFixtures,
 } from '../../services/api';
+
+/**
+ * HomeScreen.jsx
+ * 
+ * Tela principal do aplicativo FanFoot.
+ * Exibe partidas ao vivo, próximas partidas e últimos resultados.
+ * 
+ * Funcionalidades:
+ * - Listagem de partidas ao vivo com atualização automática
+ * - Próximas partidas agendadas
+ * - Histórico de partidas finalizadas
+ * - Filtro por campeonato
+ * - Pull-to-refresh para atualizar dados
+ * - Navegação para detalhes das partidas
+ * 
+ * Estados gerenciados:
+ * - loading: Indica carregamento inicial
+ * - refreshing: Indica pull-to-refresh em andamento
+ * - partidasAoVivo: Lista de partidas ao vivo
+ * - proximasPartidas: Lista de próximas partidas
+ * - ultimasPartidas: Histórico de partidas finalizadas
+ * - ligaSelecionada: Filtro de campeonato ativo
+ * 
+ * APIs utilizadas:
+ * - Football-Data.org: Dados das partidas
+ * - LiveScore (RapidAPI): Eventos em tempo real
+ */
 
 // Lista de ligas disponíveis para filtro
 const LIGAS_DISPONIVEIS = [
@@ -171,6 +199,7 @@ export default function HomeScreen({ navigation }) {
 
   // Filtrar partidas com base no filtro ativo
   const filtrarPartidas = (partidas) => {
+    if (!partidas || !Array.isArray(partidas)) return [];
     if (filtroAtivo === 'todos') return partidas;
     if (filtroAtivo === 'time_favorito' && favoritos?.times?.length > 0) {
       const timeFavoritoIds = favoritos.times.map(t => t.team?.id);
@@ -179,11 +208,13 @@ export default function HomeScreen({ navigation }) {
         timeFavoritoIds.includes(p.teams?.away?.id)
       );
     }
+    // Filtrar por código da liga (CL, BSA, PL, etc.)
     return partidas.filter(p => p.league?.code === filtroAtivo);
   };
 
   // Ordenar partidas priorizando times favoritos
   const ordenarPorFavoritos = (partidas) => {
+    if (!partidas || !Array.isArray(partidas)) return [];
     if (!favoritos?.times?.length) return partidas;
     
     const timeFavoritoIds = favoritos.times.map(t => t.team?.id);
@@ -341,19 +372,20 @@ export default function HomeScreen({ navigation }) {
   );
 
   return (
-    <ScrollView
-      style={styles.container}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          tintColor={theme.colors.primary}
-          colors={[theme.colors.primary]}
-        />
-      }
-    >
-      {/* Modal de Filtro */}
-      <FiltroModal />
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <ScrollView
+        style={styles.container}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={theme.colors.primary}
+            colors={[theme.colors.primary]}
+          />
+        }
+      >
+        {/* Modal de Filtro */}
+        <FiltroModal />
 
       {/* Header de Boas-vindas */}
       <View style={styles.header}>
@@ -498,10 +530,15 @@ export default function HomeScreen({ navigation }) {
       {/* Espaço inferior */}
       <View style={{ height: 30 }} />
     </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  },
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,

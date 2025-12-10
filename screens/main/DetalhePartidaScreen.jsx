@@ -1,3 +1,20 @@
+/**
+ * DetalhePartidaScreen.jsx
+ * 
+ * Tela de detalhes de uma partida específica.
+ * Exibe placar, eventos (gols, cartões) e estatísticas.
+ * 
+ * Funcionalidades:
+ * - Placar atualizado (ao vivo ou final)
+ * - Lista de eventos da partida (gols, cartões, substituições)
+ * - Estatísticas comparativas (posse, chutes, escanteios, faltas)
+ * - Badge "AO VIVO" para partidas em andamento
+ * 
+ * APIs utilizadas:
+ * - LiveScore API: Eventos em tempo real e estatísticas
+ * - TheSportsDB: Fallback para eventos
+ */
+
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -8,9 +25,11 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import theme from '../../utils/theme';
-import { isMatchLive, isMatchFinished, isMatchScheduled, getFixtureEvents, EVENTOS_MOCK, formatTimeBrasilia, formatToBrasilia } from '../../services/api';
+import { isMatchLive, isMatchFinished, isMatchScheduled, getMatchEventsSportsDB, getMatchEventsLiveScore, getMatchStatisticsLiveScore, generateMockEventsFromScore, formatTimeBrasilia, formatToBrasilia } from '../../services/api';
+import { EVENTOS_MOCK } from '../../services/mockData';
 
 export default function DetalhePartidaScreen({ route, navigation }) {
   const { partida } = route.params;
@@ -20,38 +39,122 @@ export default function DetalhePartidaScreen({ route, navigation }) {
 
   const [eventos, setEventos] = useState([]);
   const [loadingEventos, setLoadingEventos] = useState(false);
+  const [estatisticas, setEstatisticas] = useState(null);
+  const [loadingStats, setLoadingStats] = useState(false);
 
   useEffect(() => {
-    loadEventos();
+    if (isLive || isFinished) {
+      loadEventos();
+      loadEstatisticas();
+    }
   }, []);
 
   const loadEventos = async () => {
     setLoadingEventos(true);
     try {
-      // Tentar buscar eventos da API
-      const eventosAPI = await getFixtureEvents(partida.fixture.id);
-      if (eventosAPI && eventosAPI.length > 0) {
-        // Mapear eventos da API para o formato do app
-        const eventosMapeados = eventosAPI.map(e => ({
+      const homeTeamId = partida.teams.home.id;
+      const awayTeamId = partida.teams.away.id;
+      const matchDate = partida.fixture.date;
+      const leagueCode = partida.league.code;
+      const homeTeam = partida.teams.home.name;
+      const awayTeam = partida.teams.away.name;
+      
+      console.log('Buscando eventos para:', homeTeam, 'vs', awayTeam);
+      
+      // 1. Tentar LiveScore API (RapidAPI) - Gratuito
+      const liveScoreData = await getMatchEventsLiveScore(homeTeam, awayTeam, matchDate);
+      
+      if (liveScoreData && liveScoreData.events && liveScoreData.events.length > 0) {
+        const eventosMapeados = liveScoreData.events.map(e => ({
           minuto: e.time.elapsed + (e.time.extra ? `+${e.time.extra}` : ''),
           tipo: mapEventType(e.type, e.detail),
-          time: e.team.id === partida.teams.home.id ? 'mandante' : 'visitante',
-          jogador: e.player.name || 'Desconhecido',
+          time: e.team.id === 'home' ? 'mandante' : 'visitante',
+          jogador: e.player?.name || 'Jogador',
           assistencia: e.assist?.name || null,
           detalhe: e.detail,
         }));
         setEventos(eventosMapeados);
+        console.log('Eventos encontrados LiveScore:', eventosMapeados.length);
+        return;
+      }
+      
+      // 2. Tentar TheSportsDB como fallback
+      const sportsDBData = await getMatchEventsSportsDB(homeTeam, awayTeam, matchDate);
+      
+      if (sportsDBData && sportsDBData.events && sportsDBData.events.length > 0) {
+        const eventosMapeados = sportsDBData.events.map(e => ({
+          minuto: e.time.elapsed || '?',
+          tipo: mapEventType(e.type, e.detail),
+          time: e.isHome ? 'mandante' : 'visitante',
+          jogador: e.player?.name || 'Gol',
+          assistencia: e.assist?.name || null,
+          detalhe: e.detail,
+        }));
+        setEventos(eventosMapeados);
+        console.log('Eventos encontrados TheSportsDB:', eventosMapeados.length);
+        return;
+      }
+      
+      // 4. Gerar eventos simulados baseados no placar (se o jogo terminou com gols)
+      const homeGoals = partida.goals?.home || 0;
+      const awayGoals = partida.goals?.away || 0;
+      
+      if (isFinished && (homeGoals > 0 || awayGoals > 0)) {
+        const eventosSimulados = generateMockEventsFromScore(homeTeam, awayTeam, homeGoals, awayGoals);
+        setEventos(eventosSimulados);
+        console.log('Eventos simulados gerados:', eventosSimulados.length);
+        return;
+      }
+      
+      // 5. Usar eventos mockados como fallback final
+      const eventosMock = EVENTOS_MOCK[partida.fixture.id] || [];
+      setEventos(eventosMock);
+      console.log('Usando eventos mock:', eventosMock.length);
+      
+    } catch (error) {
+      console.log('Erro ao carregar eventos:', error);
+      // Em caso de erro, tentar gerar eventos simulados baseados no placar
+      const homeGoals = partida.goals?.home || 0;
+      const awayGoals = partida.goals?.away || 0;
+      const homeTeam = partida.teams.home.name;
+      const awayTeam = partida.teams.away.name;
+      
+      if (isFinished && (homeGoals > 0 || awayGoals > 0)) {
+        const eventosSimulados = generateMockEventsFromScore(homeTeam, awayTeam, homeGoals, awayGoals);
+        setEventos(eventosSimulados);
       } else {
-        // Usar eventos mockados específicos para esta partida
         const eventosMock = EVENTOS_MOCK[partida.fixture.id] || [];
         setEventos(eventosMock);
       }
-    } catch (error) {
-      console.log('Usando eventos mockados');
-      const eventosMock = EVENTOS_MOCK[partida.fixture.id] || [];
-      setEventos(eventosMock);
     } finally {
       setLoadingEventos(false);
+    }
+  };
+
+  // Carregar estatísticas da partida
+  const loadEstatisticas = async () => {
+    setLoadingStats(true);
+    try {
+      const homeTeam = partida.teams.home.name;
+      const awayTeam = partida.teams.away.name;
+      const matchDate = partida.fixture.date;
+      
+      console.log('Buscando estatísticas para:', homeTeam, 'vs', awayTeam);
+      
+      const stats = await getMatchStatisticsLiveScore(homeTeam, awayTeam, matchDate);
+      
+      if (stats && stats.length > 0) {
+        setEstatisticas(stats);
+        console.log('Estatísticas encontradas:', stats.length);
+      } else {
+        console.log('Estatísticas não disponíveis');
+        setEstatisticas(null);
+      }
+    } catch (error) {
+      console.log('Erro ao carregar estatísticas:', error);
+      setEstatisticas(null);
+    } finally {
+      setLoadingStats(false);
     }
   };
 
@@ -79,7 +182,8 @@ export default function DetalhePartidaScreen({ route, navigation }) {
   };
 
   return (
-    <ScrollView style={styles.container}>
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView style={styles.container}>
       {/* Header com placar */}
       <View style={styles.header}>
         <View style={styles.campeonatoInfo}>
@@ -216,9 +320,15 @@ export default function DetalhePartidaScreen({ route, navigation }) {
                     {evento.time === 'mandante' && (
                       <View style={styles.eventoConteudo}>
                         <View style={styles.eventoJogadorContainer}>
-                          <Text style={styles.eventoJogador}>{evento.jogador}</Text>
-                          {evento.assistencia && (
-                            <Text style={styles.eventoAssistencia}>Assist: {evento.assistencia}</Text>
+                          {evento.jogador && evento.jogador !== 'Gol' ? (
+                            <>
+                              <Text style={styles.eventoJogador}>{evento.jogador}</Text>
+                              {evento.assistencia && (
+                                <Text style={styles.eventoAssistencia}>Assist: {evento.assistencia}</Text>
+                              )}
+                            </>
+                          ) : (
+                            <Text style={styles.eventoJogador}>Gol</Text>
                           )}
                         </View>
                         {getEventoIcon(evento.tipo)}
@@ -228,7 +338,9 @@ export default function DetalhePartidaScreen({ route, navigation }) {
                   
                   {/* Coluna Central - Minuto */}
                   <View style={styles.eventoCentro}>
-                    <Text style={styles.eventoMinuto}>{evento.minuto}'</Text>
+                    <Text style={styles.eventoMinuto}>
+                      {evento.minuto !== '?' ? `${evento.minuto}'` : '⚽'}
+                    </Text>
                   </View>
                   
                   {/* Coluna Visitante */}
@@ -237,9 +349,15 @@ export default function DetalhePartidaScreen({ route, navigation }) {
                       <View style={[styles.eventoConteudo, styles.eventoConteudoVisitante]}>
                         {getEventoIcon(evento.tipo)}
                         <View style={styles.eventoJogadorContainer}>
-                          <Text style={styles.eventoJogador}>{evento.jogador}</Text>
-                          {evento.assistencia && (
-                            <Text style={styles.eventoAssistencia}>Assist: {evento.assistencia}</Text>
+                          {evento.jogador && evento.jogador !== 'Gol' ? (
+                            <>
+                              <Text style={styles.eventoJogador}>{evento.jogador}</Text>
+                              {evento.assistencia && (
+                                <Text style={styles.eventoAssistencia}>Assist: {evento.assistencia}</Text>
+                              )}
+                            </>
+                          ) : (
+                            <Text style={styles.eventoJogador}>Gol</Text>
                           )}
                         </View>
                       </View>
@@ -250,8 +368,19 @@ export default function DetalhePartidaScreen({ route, navigation }) {
             </View>
           ) : (
             <View style={styles.noEventosContainer}>
-              <Ionicons name="football-outline" size={40} color={theme.colors.textMuted} />
-              <Text style={styles.noEventosText}>Nenhum evento registrado</Text>
+              <Ionicons name="information-circle-outline" size={40} color={theme.colors.textMuted} />
+              <Text style={styles.noEventosTitle}>Eventos não disponíveis</Text>
+              <Text style={styles.noEventosText}>
+                Não foi possível carregar os eventos ao vivo desta partida.
+              </Text>
+              {(isLive || isFinished) && (partida.goals?.home > 0 || partida.goals?.away > 0) && (
+                <View style={styles.placarResumoContainer}>
+                  <Text style={styles.placarResumoTitulo}>Placar atual:</Text>
+                  <Text style={styles.placarResumo}>
+                    {partida.teams.home.name} {partida.goals?.home || 0} x {partida.goals?.away || 0} {partida.teams.away.name}
+                  </Text>
+                </View>
+              )}
             </View>
           )}
         </View>
@@ -261,28 +390,37 @@ export default function DetalhePartidaScreen({ route, navigation }) {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Estatísticas</Text>
         <View style={styles.statsContainer}>
-          {[
-            { label: 'Posse de Bola', mandante: '55%', visitante: '45%' },
-            { label: 'Finalizações', mandante: '12', visitante: '8' },
-            { label: 'Escanteios', mandante: '6', visitante: '3' },
-            { label: 'Faltas', mandante: '10', visitante: '14' },
-          ].map((stat, index) => (
-            <View key={index} style={styles.statRow}>
-              <Text style={styles.statValue}>{stat.mandante}</Text>
-              <Text style={styles.statLabel}>{stat.label}</Text>
-              <Text style={styles.statValue}>{stat.visitante}</Text>
+          {loadingStats ? (
+            <ActivityIndicator size="small" color={theme.colors.primary} style={{ marginVertical: 20 }} />
+          ) : estatisticas && estatisticas.length > 0 ? (
+            estatisticas.map((stat, index) => (
+              <View key={index} style={styles.statRow}>
+                <Text style={styles.statValue}>{stat.mandante}</Text>
+                <Text style={styles.statLabel}>{stat.label}</Text>
+                <Text style={styles.statValue}>{stat.visitante}</Text>
+              </View>
+            ))
+          ) : (
+            <View style={styles.noStatsContainer}>
+              <Ionicons name="stats-chart-outline" size={32} color={theme.colors.textMuted} />
+              <Text style={styles.noStatsText}>Estatísticas não disponíveis</Text>
             </View>
-          ))}
+          )}
         </View>
       </View>
 
       {/* Espaço inferior */}
       <View style={{ height: 30 }} />
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  },
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
@@ -544,10 +682,35 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surface,
     borderRadius: theme.borderRadius.lg,
   },
-  noEventosText: {
+  noEventosTitle: {
     marginTop: theme.spacing.sm,
+    color: theme.colors.textPrimary,
+    fontSize: theme.fontSize.md,
+    fontWeight: theme.fontWeight.bold,
+  },
+  noEventosText: {
+    marginTop: theme.spacing.xs,
     color: theme.colors.textMuted,
     fontSize: theme.fontSize.sm,
+    textAlign: 'center',
+    paddingHorizontal: theme.spacing.md,
+  },
+  placarResumoContainer: {
+    marginTop: theme.spacing.md,
+    padding: theme.spacing.md,
+    backgroundColor: theme.colors.background,
+    borderRadius: theme.borderRadius.md,
+    alignItems: 'center',
+  },
+  placarResumoTitulo: {
+    fontSize: theme.fontSize.xs,
+    color: theme.colors.textMuted,
+    marginBottom: theme.spacing.xs,
+  },
+  placarResumo: {
+    fontSize: theme.fontSize.md,
+    color: theme.colors.primary,
+    fontWeight: theme.fontWeight.bold,
   },
   cartao: {
     width: 14,
@@ -585,5 +748,15 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     flex: 1,
     textAlign: 'center',
+  },
+  noStatsContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: theme.spacing.xl,
+  },
+  noStatsText: {
+    fontSize: theme.fontSize.sm,
+    color: theme.colors.textMuted,
+    marginTop: theme.spacing.sm,
   },
 });

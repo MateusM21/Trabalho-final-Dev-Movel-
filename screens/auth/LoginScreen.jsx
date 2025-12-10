@@ -1,3 +1,20 @@
+/**
+ * LoginScreen.jsx
+ * 
+ * Tela de login do usuário.
+ * Permite autenticação com email/senha ou acesso como visitante.
+ * 
+ * Funcionalidades:
+ * - Login com email e senha
+ * - Mostrar/ocultar senha
+ * - Navegar para cadastro
+ * - Acesso como visitante
+ * 
+ * Autenticação:
+ * - Usa AuthContext para gerenciar estado de login
+ * - Persistência via AsyncStorage
+ */
+
 import React, { useState } from 'react';
 import {
   View,
@@ -11,6 +28,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import theme from '../../utils/theme';
@@ -40,10 +58,11 @@ export default function LoginScreen({ navigation }) {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
       <ScrollView 
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
@@ -143,11 +162,16 @@ export default function LoginScreen({ navigation }) {
           <Text style={styles.guestButtonText}>Visitante</Text>
         </TouchableOpacity>
       </ScrollView>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  },
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,

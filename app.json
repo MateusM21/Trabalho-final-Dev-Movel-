@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "FutebolApp",
-    "slug": "FutebolApp",
+    "name": "FanFoot",
+    "slug": "FanFoot",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -21,7 +21,7 @@
         "backgroundColor": "#0D1117"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.mguedes709.FutebolApp"
+      "package": "com.mguedes709.FanFoot"
     },
     "web": {
       "favicon": "./assets/favicon.png"

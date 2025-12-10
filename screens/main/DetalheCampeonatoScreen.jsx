@@ -1,3 +1,19 @@
+/**
+ * DetalheCampeonatoScreen.jsx
+ * 
+ * Tela de detalhes de um campeonato específico.
+ * Exibe tabela de classificação, partidas e artilheiros.
+ * 
+ * Funcionalidades:
+ * - Tabela de classificação atualizada
+ * - Lista de partidas (passadas e futuras)
+ * - Ranking de artilheiros
+ * - Navegação por tabs
+ * 
+ * APIs utilizadas:
+ * - Football-Data.org: Classificação, partidas e artilheiros
+ */
+
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -11,6 +27,7 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import theme from '../../utils/theme';
 import { 
@@ -432,7 +449,8 @@ export default function DetalheCampeonatoScreen({ route, navigation }) {
   };
 
   return (
-    <ScrollView 
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView 
       style={styles.container}
       refreshControl={
         <RefreshControl
@@ -471,11 +489,16 @@ export default function DetalheCampeonatoScreen({ route, navigation }) {
 
       {/* Conteúdo */}
       {renderContent()}
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  },
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,

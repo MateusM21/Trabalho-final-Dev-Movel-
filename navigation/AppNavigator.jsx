@@ -19,6 +19,7 @@ import DetalhePartidaScreen from '../screens/main/DetalhePartidaScreen';
 import TimesScreen from '../screens/main/TimesScreen';
 import DetalheTimeScreen from '../screens/main/DetalheTimeScreen';
 import DetalheAtletaScreen from '../screens/main/DetalheAtletaScreen';
+import JogadoresScreen from '../screens/main/JogadoresScreen';
 import PerfilScreen from '../screens/main/PerfilScreen';
 import BuscaScreen from '../screens/main/BuscaScreen';
 
@@ -203,6 +204,33 @@ function TimesStack() {
   );
 }
 
+// Stack de Jogadores
+function JogadoresStack() {
+  return (
+    <Stack.Navigator screenOptions={defaultScreenOptions}>
+      <Stack.Screen 
+        name="JogadoresList" 
+        component={JogadoresScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen 
+        name="DetalheAtleta" 
+        component={DetalheAtletaScreen}
+        options={({ route }) => ({
+          title: route.params?.atleta?.player?.name || 'Jogador',
+        })}
+      />
+      <Stack.Screen 
+        name="DetalheTime" 
+        component={DetalheTimeScreen}
+        options={({ route }) => ({
+          title: route.params?.time?.nome_popular || 'Time',
+        })}
+      />
+    </Stack.Navigator>
+  );
+}
+
 // Stack de Perfil
 function PerfilStack() {
   return (
@@ -280,6 +308,9 @@ function MainTabs() {
             case 'Times':
               iconName = focused ? 'shield' : 'shield-outline';
               break;
+            case 'Jogadores':
+              iconName = focused ? 'people' : 'people-outline';
+              break;
             case 'Perfil':
               iconName = focused ? 'person' : 'person-outline';
               break;
@@ -307,6 +338,11 @@ function MainTabs() {
       <Tab.Screen 
         name="Times" 
         component={TimesStack}
+      />
+      <Tab.Screen 
+        name="Jogadores" 
+        component={JogadoresStack}
+        options={{ tabBarLabel: 'Jogadores' }}
       />
       <Tab.Screen 
         name="Perfil" 
